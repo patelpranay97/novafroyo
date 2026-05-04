@@ -7,6 +7,9 @@
   --charcoal: #1a1a1a;
   --charcoal-soft: #2a2a2a;
   --muted: #6b6b6b;
+  /* Aegean accent — used sparingly for whimsy */
+  --aegean: #2d4f9e;
+  --aegean-soft: #6f8acb;
 }
 
 @theme inline {
@@ -16,6 +19,8 @@
   --color-charcoal: var(--charcoal);
   --color-charcoal-soft: var(--charcoal-soft);
   --color-muted: var(--muted);
+  --color-aegean: var(--aegean);
+  --color-aegean-soft: var(--aegean-soft);
   --font-display: var(--font-display);
   --font-sans: var(--font-sans);
 }
@@ -89,4 +94,24 @@ body {
 }
 .rise-delay-3 {
   animation-delay: 360ms;
+}
+
+/* Twinkle — subtle pulse on sparkle stars */
+@keyframes twinkle {
+  0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  50% { opacity: 0.55; transform: scale(0.85) rotate(15deg); }
+}
+.twinkle {
+  animation: twinkle 3.6s ease-in-out infinite;
+  transform-origin: center;
+}
+.twinkle-slow {
+  animation-duration: 5.4s;
+  animation-delay: 1.2s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .twinkle,
+  .twinkle-slow {
+    animation: none;
+  }
 }

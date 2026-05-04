@@ -1,6 +1,4 @@
-import { SwirlIcon } from "./swirl-icon";
 import { StarIcon } from "./star-icon";
-import { Flourish } from "./flourish";
 
 const MARQUEE_ITEMS = [
   "Swirling Soon",
@@ -32,13 +30,15 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-cream text-charcoal">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-6 sm:px-12 sm:py-8">
-        <span className="flex items-center gap-2.5">
-          <SwirlIcon className="h-7 w-auto text-charcoal" />
-          <span className="font-display text-sm tracking-[0.4em] text-charcoal">
-            NOVA
-          </span>
-        </span>
+      <header className="flex items-center justify-between px-6 py-5 sm:px-12 sm:py-6">
+        <a href="/" aria-label="Nova — home">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="Nova Greek Frozen Yogurt"
+            className="h-12 w-auto sm:h-14"
+          />
+        </a>
         <nav className="flex items-center gap-6 text-[10px] font-semibold uppercase tracking-[0.3em]">
           <a
             href="https://www.instagram.com/novafroyo"
@@ -78,18 +78,21 @@ export default function Home() {
           Greek Frozen Yogurt
         </p>
 
-        <div className="rise rise-delay-3 my-12 flex items-center gap-6">
+        <div className="rise rise-delay-3 my-10 flex items-center gap-6">
           <span className="h-px w-12 bg-charcoal/30" />
-          <SwirlIcon className="h-16 w-auto text-charcoal/80" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt=""
+            aria-hidden="true"
+            className="h-28 w-auto sm:h-36"
+          />
           <span className="h-px w-12 bg-charcoal/30" />
         </div>
 
-        <div className="relative">
-          <h2 className="rise rise-delay-3 font-display text-4xl tracking-[0.05em] text-charcoal sm:text-6xl">
-            Swirling Soon.
-          </h2>
-          <Flourish className="rise rise-delay-3 mx-auto mt-2 h-5 w-56 text-aegean sm:h-6 sm:w-72" />
-        </div>
+        <h2 className="rise rise-delay-3 font-script text-6xl font-semibold leading-none text-aegean sm:text-8xl">
+          Swirling Soon
+        </h2>
 
         <p className="rise rise-delay-3 mt-8 max-w-md text-base leading-[1.6] text-charcoal/80 sm:text-[17px]">
           A new star is rising in the West Loop. Tangy, thick, and{" "}
@@ -100,47 +103,15 @@ export default function Home() {
       {/* Marquee */}
       <Marquee />
 
-      {/* Skyline — full-bleed atmospheric closer */}
-      <section className="relative h-[70vh] w-full overflow-hidden sm:h-[80vh]">
-        <div
-          className="skyline-duotone absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url(/chicago-skyline.jpg)" }}
-        />
-        <div className="absolute inset-0 bg-charcoal/45" />
-        <div
-          className="absolute inset-0 mix-blend-multiply"
-          style={{ backgroundColor: "var(--cream)" }}
-        />
-        <div className="absolute inset-0 bg-charcoal/40" />
-
-        {/* Sparkles in the sky */}
-        <StarIcon className="twinkle absolute left-[14%] top-[18%] h-6 w-6 text-cream/70 sm:h-8 sm:w-8" />
-        <StarIcon className="twinkle twinkle-slow absolute right-[18%] top-[24%] h-4 w-4 text-cream/60 sm:h-6 sm:w-6" />
-        <StarIcon className="twinkle absolute right-[12%] top-[40%] h-5 w-5 text-cream/65 sm:h-7 sm:w-7" />
-
-        <div className="relative flex h-full flex-col items-center justify-center px-6 text-center sm:px-12">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-cream/70">
-            Coming 2026
-          </p>
-          <h3 className="mt-6 max-w-3xl font-display text-4xl leading-[1.05] tracking-tight text-cream sm:text-6xl md:text-7xl">
-            A new star, rising soon.
-          </h3>
-          <Flourish className="mx-auto mt-4 h-5 w-56 text-cream/70 sm:h-6 sm:w-72" />
-          <p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.5em] text-cream/70">
-            West Loop · Chicago
-          </p>
-        </div>
-      </section>
-
       {/* Footer */}
       <footer className="border-t border-charcoal/10 bg-cream">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-6 py-10 text-[10px] font-semibold uppercase tracking-[0.4em] text-muted sm:flex-row sm:px-12">
-          <span className="flex items-center gap-2.5">
-            <SwirlIcon className="h-6 w-auto text-charcoal" />
-            <span className="font-display text-sm tracking-[0.4em] text-charcoal">
-              NOVA
-            </span>
-          </span>
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-6 py-8 text-[10px] font-semibold uppercase tracking-[0.4em] text-muted sm:flex-row sm:px-12">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="Nova Greek Frozen Yogurt"
+            className="h-10 w-auto"
+          />
           <span className="flex items-center gap-6">
             <a
               href="https://www.instagram.com/novafroyo"

@@ -23,6 +23,7 @@
   --color-aegean-soft: var(--aegean-soft);
   --font-display: var(--font-display);
   --font-sans: var(--font-sans);
+  --font-script: var(--font-script);
 }
 
 html,
@@ -65,11 +66,6 @@ body {
   .marquee-track {
     animation: none;
   }
-}
-
-/* Skyline duotone — wash the photo with brand colors */
-.skyline-duotone {
-  filter: grayscale(1) contrast(1.05) brightness(0.85);
 }
 
 /* Subtle entrance */

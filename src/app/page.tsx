@@ -1,4 +1,3 @@
-import { NotifyForm } from "./notify-form";
 import { SwirlIcon } from "./swirl-icon";
 import { StarIcon } from "./star-icon";
 import { Flourish } from "./flourish";
@@ -100,39 +99,6 @@ export default function Home() {
 
       {/* Marquee */}
       <Marquee />
-
-      {/* Story / Notify */}
-      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-16 px-6 py-24 sm:px-12 sm:py-32 md:grid-cols-12">
-        <div className="md:col-span-5">
-          <p className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
-            <StarIcon className="h-3 w-3 text-aegean" />
-            01 — The Idea
-          </p>
-          <h3 className="mt-6 font-display text-3xl leading-[1.1] tracking-tight text-charcoal sm:text-4xl">
-            Frozen yogurt, the way the gods intended.
-          </h3>
-        </div>
-        <div className="space-y-6 text-base leading-[1.8] text-charcoal/80 sm:text-[17px] md:col-span-7">
-          <p>
-            Real Greek yogurt. Real cream. Real fruit. No shortcuts, no
-            powders, no apologies — and a wall of toppings that&apos;d make
-            Olympus jealous.
-          </p>
-          <p className="flex items-start gap-3 italic text-aegean">
-            <StarIcon className="mt-1.5 h-3 w-3 flex-shrink-0" />
-            <span>
-              P.S. We&apos;re bringing the Greek. Chicago&apos;s bringing the
-              Loop.
-            </span>
-          </p>
-          <div className="pt-4">
-            <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
-              Be the first to swirl with us
-            </p>
-            <NotifyForm />
-          </div>
-        </div>
-      </section>
 
       {/* Skyline — full-bleed atmospheric closer */}
       <section className="relative h-[70vh] w-full overflow-hidden sm:h-[80vh]">

@@ -71,9 +71,12 @@ export default function Home() {
           <span className="h-px w-20 bg-charcoal/30" />
         </div>
 
-        <h2 className="rise rise-delay-3 font-script text-[3.375rem] font-semibold leading-none text-charcoal sm:text-[5.4rem]">
-          Swirling Soon
-        </h2>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/swirling-soon.png"
+          alt="Swirling Soon"
+          className="rise rise-delay-3 w-72 mix-blend-multiply sm:w-[28rem]"
+        />
 
         <div className="rise rise-delay-3 mt-8 flex flex-col items-center gap-3">
           <p className="text-lg text-charcoal sm:text-xl">

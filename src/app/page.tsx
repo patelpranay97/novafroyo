@@ -10,7 +10,7 @@ const MARQUEE_ITEMS = [
 function Marquee() {
   const sequence = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
   return (
-    <div className="overflow-hidden border-y border-charcoal/25 bg-cream-soft py-3">
+    <div className="overflow-hidden border-y border-charcoal/25 bg-cream-soft py-1.5">
       <div className="marquee-track flex w-max items-center gap-12 whitespace-nowrap">
         {[...sequence, ...sequence].map((item, i) => (
           <span

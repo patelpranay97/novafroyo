@@ -78,7 +78,7 @@ export default function Home() {
         </p>
 
         <div className="rise rise-delay-3 my-10 flex items-center gap-6">
-          <span className="h-px w-12 bg-charcoal/30" />
+          <span className="h-px w-[3.3rem] bg-charcoal/30" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
@@ -86,7 +86,7 @@ export default function Home() {
             aria-hidden="true"
             className="h-48 w-auto sm:h-64"
           />
-          <span className="h-px w-12 bg-charcoal/30" />
+          <span className="h-px w-[3.3rem] bg-charcoal/30" />
         </div>
 
         <h2 className="rise rise-delay-3 font-script text-[3.375rem] font-semibold leading-none text-aegean sm:text-[5.4rem]">

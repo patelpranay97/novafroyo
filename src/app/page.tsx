@@ -30,7 +30,7 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-cream text-charcoal">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-6 sm:px-12 sm:py-8">
+      <header className="flex items-center px-6 py-6 sm:px-12 sm:py-8">
         <a
           href="/"
           aria-label="Nova — home"
@@ -38,24 +38,6 @@ export default function Home() {
         >
           NOVA
         </a>
-        <nav className="flex items-center gap-6 text-[10px] font-semibold uppercase tracking-[0.3em]">
-          <a
-            href="https://www.instagram.com/novafroyo"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition hover:text-aegean"
-          >
-            Instagram
-          </a>
-          <a
-            href="https://www.tiktok.com/@novagreek"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition hover:text-aegean"
-          >
-            TikTok
-          </a>
-        </nav>
       </header>
 
       {/* Hero */}

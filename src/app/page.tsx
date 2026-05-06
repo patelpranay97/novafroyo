@@ -18,7 +18,7 @@ function Marquee() {
             className="flex items-center gap-12 font-display text-base tracking-[0.35em] text-charcoal/85 sm:text-lg"
           >
             {item}
-            <StarIcon className="h-4 w-4 text-aegean" />
+            <StarIcon className="h-4 w-4 text-charcoal" />
           </span>
         ))}
       </div>

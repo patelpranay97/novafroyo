@@ -10,7 +10,7 @@ const MARQUEE_ITEMS = [
 function Marquee() {
   const sequence = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
   return (
-    <div className="overflow-hidden border-y border-charcoal/15 bg-cream-soft py-5">
+    <div className="overflow-hidden border-y border-charcoal/25 bg-cream-soft py-5">
       <div className="marquee-track flex w-max items-center gap-12 whitespace-nowrap">
         {[...sequence, ...sequence].map((item, i) => (
           <span
@@ -60,10 +60,10 @@ export default function Home() {
 
       {/* Hero */}
       <section className="grain relative flex flex-1 flex-col items-center justify-center px-6 pb-24 pt-12 text-center sm:px-12 sm:pb-32">
-        {/* Floating sparkles */}
-        <StarIcon className="twinkle absolute left-[12%] top-[18%] h-5 w-5 text-charcoal sm:left-[18%] sm:top-[22%] sm:h-7 sm:w-7" />
-        <StarIcon className="twinkle twinkle-slow absolute right-[10%] top-[30%] h-4 w-4 text-charcoal sm:right-[16%] sm:top-[34%] sm:h-6 sm:w-6" />
-        <StarIcon className="twinkle absolute bottom-[14%] right-[14%] h-3 w-3 text-charcoal sm:bottom-[18%] sm:right-[20%] sm:h-5 sm:w-5" />
+        {/* Sparkles — 2 charcoal anchors + 1 Aegean accent */}
+        <StarIcon className="twinkle absolute left-[10%] top-[16%] h-7 w-7 text-charcoal sm:left-[16%] sm:top-[20%] sm:h-9 sm:w-9" />
+        <StarIcon className="twinkle twinkle-slow absolute right-[12%] top-[34%] h-9 w-9 text-aegean sm:right-[18%] sm:top-[38%] sm:h-11 sm:w-11" />
+        <StarIcon className="twinkle absolute bottom-[18%] right-[16%] h-5 w-5 text-charcoal sm:bottom-[22%] sm:right-[22%] sm:h-7 sm:w-7" />
 
         <p className="rise mb-10 text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
           West Loop · Chicago · Est. 2026
@@ -99,8 +99,18 @@ export default function Home() {
         </p>
       </section>
 
+      {/* Aegean wave — owned brand signature */}
+      <div className="aegean-wave" aria-hidden="true" />
+
       {/* Marquee */}
       <Marquee />
+
+      {/* Phase chip — anticipation hook */}
+      <div className="bg-cream py-8 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.45em] text-muted">
+          Opening Summer 2026 · West Loop, Chicago
+        </p>
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-charcoal/10 bg-cream">

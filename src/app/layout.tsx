@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Cinzel, Montserrat, Dancing_Script } from "next/font/google";
+import { Cinzel, Montserrat, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 
 const cinzel = Cinzel({
@@ -14,10 +14,11 @@ const montserrat = Montserrat({
   weight: ["300", "400", "500", "600", "700"],
 });
 
-const dancingScript = Dancing_Script({
+const cormorant = Cormorant_Garamond({
   variable: "--font-script",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["400", "500", "600"],
+  style: ["italic"],
 });
 
 export const metadata: Metadata = {
@@ -39,7 +40,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${cinzel.variable} ${montserrat.variable} ${dancingScript.variable} h-full antialiased`}
+      className={`${cinzel.variable} ${montserrat.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

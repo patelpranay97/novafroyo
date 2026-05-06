@@ -36,6 +36,15 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Aegean wave — Nova's owned signature band */
+.aegean-wave {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='96' height='24' viewBox='0 0 96 24'><path d='M 0 12 Q 24 0 48 12 T 96 12' stroke='%232d4f9e' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+  background-repeat: repeat-x;
+  background-position: center;
+  background-size: 96px 24px;
+  height: 32px;
+}
+
 /* Subtle paper-like grain on cream surfaces */
 .grain {
   position: relative;
@@ -99,12 +108,12 @@ body {
   50% { opacity: 0.55; transform: scale(0.85) rotate(15deg); }
 }
 .twinkle {
-  animation: twinkle 3.6s ease-in-out infinite;
+  animation: twinkle 4.8s ease-in-out infinite;
   transform-origin: center;
 }
 .twinkle-slow {
-  animation-duration: 5.4s;
-  animation-delay: 1.2s;
+  animation-duration: 6.4s;
+  animation-delay: 1.6s;
 }
 @media (prefers-reduced-motion: reduce) {
   .twinkle,

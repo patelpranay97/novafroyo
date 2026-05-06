@@ -77,7 +77,7 @@ export default function Home() {
 
         <div className="rise rise-delay-3 mt-8 flex flex-col items-center gap-3">
           <p className="text-lg text-charcoal sm:text-xl">
-            Clean, Simple, Tart.
+            Clean. Simple. Tart.
           </p>
           <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
             Frozen Yogurt Reimagined

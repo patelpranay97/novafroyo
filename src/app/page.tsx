@@ -61,9 +61,9 @@ export default function Home() {
       {/* Hero */}
       <section className="grain relative flex flex-1 flex-col items-center justify-center px-6 pb-24 pt-12 text-center sm:px-12 sm:pb-32">
         {/* Sparkles — 2 charcoal anchors + 1 Aegean accent */}
-        <StarIcon className="twinkle absolute left-[6%] top-[12%] h-3.5 w-3.5 text-charcoal sm:left-[16%] sm:top-[20%] sm:h-9 sm:w-9" />
-        <StarIcon className="twinkle twinkle-slow absolute right-[6%] top-[26%] h-5 w-5 text-aegean sm:right-[18%] sm:top-[38%] sm:h-11 sm:w-11" />
-        <StarIcon className="twinkle absolute bottom-[10%] right-[7%] h-3 w-3 text-charcoal sm:bottom-[22%] sm:right-[22%] sm:h-7 sm:w-7" />
+        <StarIcon className="twinkle absolute left-[6%] top-[12%] h-2.5 w-2.5 text-charcoal sm:left-[16%] sm:top-[20%] sm:h-6 sm:w-6" />
+        <StarIcon className="twinkle twinkle-slow absolute right-[6%] top-[26%] h-3.5 w-3.5 text-aegean sm:right-[18%] sm:top-[38%] sm:h-8 sm:w-8" />
+        <StarIcon className="twinkle absolute bottom-[10%] right-[7%] h-2 w-2 text-charcoal sm:bottom-[22%] sm:right-[22%] sm:h-5 sm:w-5" />
 
         <p className="rise mb-10 text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
           West Loop · Chicago · Est. 2026

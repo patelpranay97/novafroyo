@@ -30,14 +30,13 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-cream text-charcoal">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-5 sm:px-12 sm:py-6">
-        <a href="/" aria-label="Nova — home">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="Nova Greek Frozen Yogurt"
-            className="h-12 w-auto sm:h-14"
-          />
+      <header className="flex items-center justify-between px-6 py-6 sm:px-12 sm:py-8">
+        <a
+          href="/"
+          aria-label="Nova — home"
+          className="font-display text-sm tracking-[0.4em] text-charcoal"
+        >
+          NOVA
         </a>
         <nav className="flex items-center gap-6 text-[10px] font-semibold uppercase tracking-[0.3em]">
           <a
@@ -62,9 +61,9 @@ export default function Home() {
       {/* Hero */}
       <section className="grain relative flex flex-1 flex-col items-center justify-center px-6 pb-24 pt-12 text-center sm:px-12 sm:pb-32">
         {/* Floating sparkles */}
-        <StarIcon className="twinkle absolute left-[12%] top-[18%] h-5 w-5 text-aegean sm:left-[18%] sm:top-[22%] sm:h-7 sm:w-7" />
-        <StarIcon className="twinkle twinkle-slow absolute right-[10%] top-[30%] h-4 w-4 text-aegean sm:right-[16%] sm:top-[34%] sm:h-6 sm:w-6" />
-        <StarIcon className="twinkle absolute bottom-[14%] right-[14%] h-3 w-3 text-aegean sm:bottom-[18%] sm:right-[20%] sm:h-5 sm:w-5" />
+        <StarIcon className="twinkle absolute left-[12%] top-[18%] h-5 w-5 text-charcoal sm:left-[18%] sm:top-[22%] sm:h-7 sm:w-7" />
+        <StarIcon className="twinkle twinkle-slow absolute right-[10%] top-[30%] h-4 w-4 text-charcoal sm:right-[16%] sm:top-[34%] sm:h-6 sm:w-6" />
+        <StarIcon className="twinkle absolute bottom-[14%] right-[14%] h-3 w-3 text-charcoal sm:bottom-[18%] sm:right-[20%] sm:h-5 sm:w-5" />
 
         <p className="rise mb-10 text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
           West Loop · Chicago · Est. 2026
@@ -85,7 +84,7 @@ export default function Home() {
             src="/logo.png"
             alt=""
             aria-hidden="true"
-            className="h-28 w-auto sm:h-36"
+            className="h-48 w-auto sm:h-64"
           />
           <span className="h-px w-12 bg-charcoal/30" />
         </div>

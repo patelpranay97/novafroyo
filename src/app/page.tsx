@@ -48,7 +48,7 @@ export default function Home() {
         <StarIcon className="twinkle absolute bottom-[10%] right-[7%] h-2 w-2 text-charcoal sm:bottom-[22%] sm:right-[22%] sm:h-5 sm:w-5" />
 
         <p className="rise mb-10 text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
-          West Loop · Chicago · Est. 2026
+          West Loop · Chicago
         </p>
 
         <h1 className="rise rise-delay-1 font-display text-[clamp(5rem,22vw,18rem)] leading-[0.85] tracking-[-0.01em] text-charcoal">

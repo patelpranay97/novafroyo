@@ -41,32 +41,35 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="grain relative flex flex-1 flex-col items-center justify-center px-6 pb-24 pt-12 text-center sm:px-12 sm:pb-32">
+      <section className="grain relative flex flex-1 flex-col items-center justify-center gap-12 px-6 pb-24 pt-12 text-center sm:gap-16 sm:px-12 sm:pb-32">
         {/* Sparkles — 2 charcoal anchors + 1 Aegean accent */}
         <StarIcon className="twinkle absolute left-[6%] top-[12%] h-2.5 w-2.5 text-charcoal sm:left-[16%] sm:top-[20%] sm:h-6 sm:w-6" />
         <StarIcon className="twinkle twinkle-slow absolute right-[6%] top-[26%] h-3.5 w-3.5 text-aegean sm:right-[18%] sm:top-[38%] sm:h-8 sm:w-8" />
         <StarIcon className="twinkle absolute bottom-[10%] right-[7%] h-2 w-2 text-charcoal sm:bottom-[22%] sm:right-[22%] sm:h-5 sm:w-5" />
 
-        <p className="rise mb-10 text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
-          West Loop · Chicago
-        </p>
+        {/* Block 1 — Wordmark cluster */}
+        <div className="flex flex-col items-center">
+          <p className="rise mb-8 text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
+            West Loop · Chicago
+          </p>
+          <h1 className="rise rise-delay-1 font-display text-[clamp(4rem,18vw,14rem)] leading-[0.85] tracking-[-0.01em] text-charcoal">
+            NOVA
+          </h1>
+          <p className="rise rise-delay-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.6em] text-charcoal sm:text-xs">
+            Greek Frozen Yogurt
+          </p>
+        </div>
 
-        <h1 className="rise rise-delay-1 font-display text-[clamp(5rem,22vw,18rem)] leading-[0.85] tracking-[-0.01em] text-charcoal">
-          NOVA
-        </h1>
-
-        <p className="rise rise-delay-2 mt-6 text-[11px] font-semibold uppercase tracking-[0.6em] text-charcoal sm:text-xs">
-          Greek Frozen Yogurt
-        </p>
-
+        {/* Block 2 — Swirling Soon lettering */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/swirling-soon.png"
           alt="Swirling Soon"
-          className="rise rise-delay-3 mt-10 w-72 mix-blend-multiply sm:w-[28rem]"
+          className="rise rise-delay-3 w-72 mix-blend-multiply sm:w-[28rem]"
         />
 
-        <div className="rise rise-delay-3 my-10 flex items-center gap-6">
+        {/* Block 3 — Cup logo seal */}
+        <div className="rise rise-delay-3 flex items-center gap-6">
           <span className="h-px w-20 bg-charcoal/30" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -78,7 +81,8 @@ export default function Home() {
           <span className="h-px w-20 bg-charcoal/30" />
         </div>
 
-        <div className="rise rise-delay-3 mt-8 flex flex-col items-center gap-3">
+        {/* Block 4 — Tagline */}
+        <div className="rise rise-delay-3 flex flex-col items-center gap-3">
           <p className="text-lg text-charcoal sm:text-xl">
             Clean. Simple. Tart.
           </p>

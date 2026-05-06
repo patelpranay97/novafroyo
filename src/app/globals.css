@@ -36,9 +36,9 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Aegean wave — Nova's owned signature band */
+/* Wave — Nova's owned signature band */
 .aegean-wave {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='96' height='24' viewBox='0 0 96 24'><path d='M 0 12 Q 24 0 48 12 T 96 12' stroke='%232d4f9e' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='96' height='24' viewBox='0 0 96 24'><path d='M 0 12 Q 24 0 48 12 T 96 12' stroke='%23222222' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
   background-repeat: repeat-x;
   background-position: center;
   background-size: 96px 24px;

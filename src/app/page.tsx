@@ -75,10 +75,14 @@ export default function Home() {
           Swirling Soon
         </h2>
 
-        <p className="rise rise-delay-3 mt-8 max-w-md text-base leading-[1.6] text-charcoal/80 sm:text-[17px]">
-          A new star is rising in the West Loop. Tangy, thick, and{" "}
-          <span className="font-semibold text-charcoal">very, very Greek</span>.
-        </p>
+        <div className="rise rise-delay-3 mt-8 flex flex-col items-center gap-3">
+          <p className="text-lg text-charcoal sm:text-xl">
+            Clean, Simple, Tart.
+          </p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
+            Frozen Yogurt Reimagined
+          </p>
+        </div>
       </section>
 
       {/* Aegean wave — owned brand signature */}

@@ -89,7 +89,7 @@ export default function Home() {
           <span className="h-px w-12 bg-charcoal/30" />
         </div>
 
-        <h2 className="rise rise-delay-3 font-script text-6xl font-semibold leading-none text-aegean sm:text-8xl">
+        <h2 className="rise rise-delay-3 font-script text-[3.375rem] font-semibold leading-none text-aegean sm:text-[5.4rem]">
           Swirling Soon
         </h2>
 

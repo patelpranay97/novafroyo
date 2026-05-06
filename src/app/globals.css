@@ -4,10 +4,10 @@
   --cream: #efece5;
   --cream-soft: #f5f2ec;
   --cream-deep: #e3dfd5;
-  /* Logo stroke taupe — sampled from /public/logo.png */
-  --charcoal: #948575;
-  --charcoal-soft: #7c6f5f;
-  --muted: #a89a87;
+  /* Brand font color */
+  --charcoal: #222222;
+  --charcoal-soft: #383838;
+  --muted: #6b6b6b;
   /* Aegean accent — used sparingly for whimsy */
   --aegean: #2d4f9e;
   --aegean-soft: #6f8acb;

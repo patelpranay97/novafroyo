@@ -71,13 +71,13 @@ export default function Home() {
           <span className="h-px w-20 bg-charcoal/30" />
         </div>
 
-        <h2 className="rise rise-delay-3 font-script text-[3.375rem] font-semibold leading-none text-aegean sm:text-[5.4rem]">
+        <h2 className="rise rise-delay-3 font-script text-[3.375rem] font-semibold leading-none text-charcoal sm:text-[5.4rem]">
           Swirling Soon
         </h2>
 
         <p className="rise rise-delay-3 mt-8 max-w-md text-base leading-[1.6] text-charcoal/80 sm:text-[17px]">
           A new star is rising in the West Loop. Tangy, thick, and{" "}
-          <span className="font-semibold text-aegean">very, very Greek</span>.
+          <span className="font-semibold text-charcoal">very, very Greek</span>.
         </p>
       </section>
 

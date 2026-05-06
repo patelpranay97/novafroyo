@@ -59,6 +59,13 @@ export default function Home() {
           Greek Frozen Yogurt
         </p>
 
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/swirling-soon.png"
+          alt="Swirling Soon"
+          className="rise rise-delay-3 mt-10 w-72 mix-blend-multiply sm:w-[28rem]"
+        />
+
         <div className="rise rise-delay-3 my-10 flex items-center gap-6">
           <span className="h-px w-20 bg-charcoal/30" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -70,13 +77,6 @@ export default function Home() {
           />
           <span className="h-px w-20 bg-charcoal/30" />
         </div>
-
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/swirling-soon.png"
-          alt="Swirling Soon"
-          className="rise rise-delay-3 w-72 mix-blend-multiply sm:w-[28rem]"
-        />
 
         <div className="rise rise-delay-3 mt-8 flex flex-col items-center gap-3">
           <p className="text-lg text-charcoal sm:text-xl">

@@ -77,7 +77,7 @@ export default function Home() {
           <span className="h-px w-20 bg-charcoal/30" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/froyo-cup.png"
+            src="/froyo-cup.svg"
             alt=""
             aria-hidden="true"
             className="h-48 w-auto sm:h-64"

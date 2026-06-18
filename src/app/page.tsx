@@ -1,3 +1,4 @@
+import { ShootingStars } from "./shooting-stars";
 import { StarIcon } from "./star-icon";
 
 const MARQUEE_ITEMS = [
@@ -28,7 +29,10 @@ function Marquee() {
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-cream text-charcoal">
+    <div className="isolate flex min-h-screen flex-col bg-cream text-charcoal">
+      {/* Shooting star — rare, subtle background streak */}
+      <ShootingStars />
+
       {/* Header */}
       <header className="flex items-center px-6 py-6 sm:px-12 sm:py-8">
         <a

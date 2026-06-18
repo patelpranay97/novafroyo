@@ -102,6 +102,57 @@ body {
   animation-delay: 360ms;
 }
 
+/* Shooting star — a rare, subtle streak across the background */
+@keyframes shoot {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateX(0);
+  }
+  12% {
+    opacity: 0.5;
+  }
+  78% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateX(var(--travel));
+  }
+}
+.shooting-star {
+  position: absolute;
+  width: 130px;
+  height: 1.4px;
+  border-radius: 999px;
+  transform-origin: left center;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--aegean) 35%, transparent) 65%,
+    var(--aegean) 100%
+  );
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: shoot var(--duration, 1400ms) cubic-bezier(0.4, 0, 0.25, 1) forwards;
+}
+.shooting-star::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 999px;
+  background: var(--aegean);
+  transform: translateY(-50%);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--aegean-soft) 70%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .shooting-star {
+    display: none;
+  }
+}
+
 /* Twinkle — subtle pulse on sparkle stars */
 @keyframes twinkle {
   0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }

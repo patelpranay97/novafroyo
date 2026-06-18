@@ -64,14 +64,6 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Block 2 — Swirling Soon lettering */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/swirling-soon.png"
-          alt="Swirling Soon"
-          className="rise rise-delay-3 w-72 mix-blend-multiply sm:w-[28rem]"
-        />
-
         {/* Block 3 — Cup logo seal */}
         <div className="rise rise-delay-3 flex items-center gap-6">
           <span className="h-px w-20 bg-charcoal/30" />

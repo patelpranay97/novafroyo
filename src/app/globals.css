@@ -109,10 +109,10 @@ body {
     transform: rotate(var(--angle)) translateX(0);
   }
   12% {
-    opacity: 0.5;
+    opacity: 0.85;
   }
   78% {
-    opacity: 0.5;
+    opacity: 0.85;
   }
   100% {
     opacity: 0;
@@ -121,14 +121,14 @@ body {
 }
 .shooting-star {
   position: absolute;
-  width: 130px;
-  height: 1.4px;
+  width: 165px;
+  height: 2px;
   border-radius: 999px;
   transform-origin: left center;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in srgb, var(--aegean) 35%, transparent) 65%,
+    color-mix(in srgb, var(--aegean) 55%, transparent) 60%,
     var(--aegean) 100%
   );
   opacity: 0;
@@ -140,12 +140,12 @@ body {
   position: absolute;
   right: -1px;
   top: 50%;
-  width: 3.5px;
-  height: 3.5px;
+  width: 5px;
+  height: 5px;
   border-radius: 999px;
   background: var(--aegean);
   transform: translateY(-50%);
-  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--aegean-soft) 70%, transparent);
+  box-shadow: 0 0 9px 2px color-mix(in srgb, var(--aegean-soft) 85%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
   .shooting-star {

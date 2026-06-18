@@ -118,22 +118,38 @@ export default function Home() {
             alt="Nova Greek Frozen Yogurt"
             className="h-10 w-auto"
           />
-          <span className="flex items-center gap-6">
+          <span className="flex items-center gap-5">
             <a
-              href="https://www.instagram.com/novafroyo"
+              href="https://www.instagram.com/novafroyo/"
               target="_blank"
               rel="noopener noreferrer"
-              className="transition hover:text-aegean"
+              aria-label="Nova on Instagram"
+              className="text-charcoal transition hover:text-charcoal/60"
             >
-              @novafroyo
+              <svg
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+                className="h-5 w-5"
+              >
+                <path d="M12 2c-2.7 0-3.05.01-4.12.06-1.06.05-1.79.22-2.43.47-.66.26-1.22.6-1.77 1.16-.56.55-.9 1.11-1.16 1.77-.25.64-.42 1.37-.47 2.43C2.01 8.95 2 9.3 2 12s.01 3.05.06 4.12c.05 1.06.22 1.79.47 2.43.26.66.6 1.22 1.16 1.77.55.56 1.11.9 1.77 1.16.64.25 1.37.42 2.43.47C8.95 21.99 9.3 22 12 22s3.05-.01 4.12-.06c1.06-.05 1.79-.22 2.43-.47.66-.26 1.22-.6 1.77-1.16.56-.55.9-1.11 1.16-1.77.25-.64.42-1.37.47-2.43.05-1.07.06-1.42.06-4.12s-.01-3.05-.06-4.12c-.05-1.06-.22-1.79-.47-2.43-.26-.66-.6-1.22-1.16-1.77-.55-.56-1.11-.9-1.77-1.16-.64-.25-1.37-.42-2.43-.47C15.05 2.01 14.7 2 12 2zm0 1.8c2.67 0 2.98.01 4.04.06.97.04 1.5.21 1.85.35.47.18.8.4 1.15.75.35.35.57.68.75 1.15.14.35.31.88.35 1.85.05 1.06.06 1.37.06 4.04s-.01 2.98-.06 4.04c-.04.97-.21 1.5-.35 1.85-.18.47-.4.8-.75 1.15-.35.35-.68.57-1.15.75-.35.14-.88.31-1.85.35-1.06.05-1.37.06-4.04.06s-2.98-.01-4.04-.06c-.97-.04-1.5-.21-1.85-.35-.47-.18-.8-.4-1.15-.75-.35-.35-.57-.68-.75-1.15-.14-.35-.31-.88-.35-1.85-.05-1.06-.06-1.37-.06-4.04s.01-2.98.06-4.04c.04-.97.21-1.5.35-1.85.18-.47.4-.8.75-1.15.35-.35.68-.57 1.15-.75.35-.14.88-.31 1.85-.35C9.02 3.81 9.33 3.8 12 3.8zm0 3.06A5.14 5.14 0 1 0 12 17.14 5.14 5.14 0 0 0 12 6.86zm0 8.47A3.33 3.33 0 1 1 12 8.67a3.33 3.33 0 0 1 0 6.66zm6.54-8.67a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z" />
+              </svg>
             </a>
             <a
-              href="https://www.tiktok.com/@novagreek"
+              href="https://www.tiktok.com/@novafroyo"
               target="_blank"
               rel="noopener noreferrer"
-              className="transition hover:text-aegean"
+              aria-label="Nova on TikTok"
+              className="text-charcoal transition hover:text-charcoal/60"
             >
-              @novagreek
+              <svg
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+                className="h-5 w-5"
+              >
+                <path d="M16.6 5.82a4.28 4.28 0 0 1-1.05-2.82h-3.3v12.93a2.59 2.59 0 0 1-2.59 2.5 2.59 2.59 0 0 1-.69-5.08v-3.4a5.89 5.89 0 0 0-5.89 5.89A5.89 5.89 0 0 0 8.97 21.6a5.89 5.89 0 0 0 5.89-5.89V9.01a7.55 7.55 0 0 0 4.4 1.41V7.12a4.28 4.28 0 0 1-2.66-1.3z" />
+              </svg>
             </a>
           </span>
           <span>© {new Date().getFullYear()} Nova Greek Frozen Yogurt</span>

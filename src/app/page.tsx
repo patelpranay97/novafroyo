@@ -1,4 +1,3 @@
-import { FroyoCup } from "./froyo-cup";
 import { ShootingStars } from "./shooting-stars";
 import { StarIcon } from "./star-icon";
 
@@ -76,7 +75,13 @@ export default function Home() {
         {/* Block 3 — Cup logo seal */}
         <div className="rise rise-delay-3 flex items-center gap-6">
           <span className="h-px w-20 bg-charcoal/30" />
-          <FroyoCup className="h-48 w-auto text-charcoal sm:h-64" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/froyo-cup.png"
+            alt=""
+            aria-hidden="true"
+            className="h-48 w-auto sm:h-64"
+          />
           <span className="h-px w-20 bg-charcoal/30" />
         </div>
 

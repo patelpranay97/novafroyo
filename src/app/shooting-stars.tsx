@@ -3,9 +3,11 @@
 import { useEffect, useRef } from "react";
 
 /**
- * A very subtle shooting star that streaks across the background roughly
- * every ~30s. Each pass randomizes its origin, angle, length, and speed so
- * it never feels mechanical. Honors prefers-reduced-motion.
+ * Subtle shooting stars that streak across the background. Passes cycle
+ * through three vertical bands — upper, middle, and lower — so the stars
+ * feel spread across the page rather than clustered in one spot. Each pass
+ * randomizes origin, angle, length, and speed so it never feels mechanical.
+ * Honors prefers-reduced-motion.
  */
 export function ShootingStars() {
   const layerRef = useRef<HTMLDivElement>(null);
@@ -15,11 +17,23 @@ export function ShootingStars() {
     if (!layer) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
+    // Vertical bands (as fractions of the viewport height) that successive
+    // stars step through, so consecutive passes stay spatially spaced out.
+    const bands = [
+      [0.04, 0.2], // upper
+      [0.4, 0.54], // middle
+      [0.66, 0.82], // lower
+    ];
+    let bandIndex = Math.floor(Math.random() * bands.length);
+
     let nextTimeout: number;
 
     const spawn = () => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
+
+      const [bandMin, bandMax] = bands[bandIndex];
+      bandIndex = (bandIndex + 1) % bands.length;
 
       const star = document.createElement("span");
       star.className = "shooting-star";
@@ -29,7 +43,7 @@ export function ShootingStars() {
       const duration = 1100 + Math.random() * 700;
 
       star.style.left = `${vw * (0.04 + Math.random() * 0.5)}px`;
-      star.style.top = `${vh * (0.02 + Math.random() * 0.32)}px`;
+      star.style.top = `${vh * (bandMin + Math.random() * (bandMax - bandMin))}px`;
       star.style.setProperty("--angle", `${angle}deg`);
       star.style.setProperty("--travel", `${travel}px`);
       star.style.setProperty("--duration", `${duration}ms`);
@@ -39,7 +53,7 @@ export function ShootingStars() {
     };
 
     const schedule = () => {
-      const delay = 26000 + Math.random() * 12000; // ~26–38s between passes
+      const delay = 14000 + Math.random() * 10000; // ~14–24s between passes
       nextTimeout = window.setTimeout(() => {
         spawn();
         schedule();

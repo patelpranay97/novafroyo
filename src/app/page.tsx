@@ -72,7 +72,7 @@ export default function Home() {
             src="/froyo-cup.svg"
             alt=""
             aria-hidden="true"
-            className="h-48 w-auto sm:h-64"
+            className="h-[9.6rem] w-auto sm:h-[12.8rem]"
           />
           <span className="h-px w-20 bg-charcoal/30" />
         </div>

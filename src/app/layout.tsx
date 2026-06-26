@@ -42,7 +42,10 @@ export default function RootLayout({
       lang="en"
       className={`${cinzel.variable} ${montserrat.variable} ${cormorant.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <script data-goatcounter="https://novafroyo.goatcounter.com/count" async src="//gc.zgo.at/count.js" />
+      </body>
     </html>
   );
 }

@@ -136,6 +136,14 @@ export default function Home() {
         <p className="text-[10px] font-semibold uppercase tracking-[0.45em] text-muted">
           Opening Summer 2026 · West Loop, Chicago
         </p>
+        <a
+          href="https://maps.google.com/?q=1047+W+Madison+St,+Chicago,+IL+60607"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-block text-[10px] font-semibold uppercase tracking-[0.45em] text-charcoal/50 transition hover:text-charcoal"
+        >
+          1047 W Madison St, Chicago, IL 60607
+        </a>
       </div>
 
       {/* Footer */}

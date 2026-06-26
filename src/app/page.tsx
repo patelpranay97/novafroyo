@@ -110,6 +110,21 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Menu CTA */}
+      <div className="flex justify-center pb-16 pt-4">
+        <a
+          href="/nova-menu.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-3 border border-charcoal/30 px-8 py-3 text-[11px] font-semibold uppercase tracking-[0.45em] text-charcoal transition hover:bg-charcoal hover:text-cream"
+        >
+          View Menu
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true" className="h-3.5 w-3.5">
+            <path d="M3 8h10M9 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </a>
+      </div>
+
       {/* Aegean wave — owned brand signature */}
       <div className="aegean-wave" aria-hidden="true" />
 

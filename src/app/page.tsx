@@ -143,6 +143,11 @@ export default function Home() {
         >
           1047 W Madison St, Chicago, IL 60607
         </a>
+        <p className="mx-auto mt-6 max-w-md px-6 text-[11px] leading-relaxed text-muted/80">
+          Nova is a Greek frozen yogurt shop opening July 12 at 1047 W Madison
+          St in Chicago&apos;s West Loop, a part of Cone. Thick, tangy froyo
+          made the Greek way, with fresh toppings — open daily, noon to 10 PM.
+        </p>
       </div>
 
       {/* Footer */}

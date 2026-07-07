@@ -22,14 +22,83 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "Nova — Greek Frozen Yogurt | Swirling soon in Chicago's West Loop",
+  metadataBase: new URL("https://novagreek.com"),
+  title: "Nova — Greek Frozen Yogurt | Opening July 12 in Chicago's West Loop",
   description:
-    "Nova is bringing thick, tangy Greek frozen yogurt to Chicago's West Loop. Swirling soon.",
+    "Nova is a Greek frozen yogurt shop opening July 12 at 1047 W Madison St in Chicago's West Loop. Thick, tangy Greek froyo with fresh toppings — part of Cone. Open daily 12–10 PM.",
+  keywords: [
+    "Greek frozen yogurt",
+    "froyo",
+    "frozen yogurt Chicago",
+    "West Loop froyo",
+    "Nova froyo",
+    "Greek froyo West Loop",
+  ],
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     title: "Nova — Greek Frozen Yogurt",
-    description: "Swirling soon in Chicago's West Loop.",
+    description:
+      "Opening July 12 in Chicago's West Loop. Thick, tangy Greek frozen yogurt — part of Cone.",
+    url: "https://novagreek.com",
+    siteName: "Nova Greek Frozen Yogurt",
+    locale: "en_US",
     type: "website",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Nova — Greek Frozen Yogurt",
+    description:
+      "Opening July 12 in Chicago's West Loop. Thick, tangy Greek frozen yogurt — part of Cone.",
+  },
+};
+
+const localBusinessJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "IceCreamShop",
+  name: "Nova Greek Frozen Yogurt",
+  alternateName: "Nova Froyo",
+  description:
+    "Greek frozen yogurt shop in Chicago's West Loop. Thick, tangy Greek froyo with fresh toppings — part of Cone.",
+  url: "https://novagreek.com",
+  logo: "https://novagreek.com/logo.png",
+  image: "https://novagreek.com/logo.png",
+  foundingDate: "2026-07-12",
+  servesCuisine: ["Frozen Yogurt", "Greek"],
+  priceRange: "$",
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "1047 W Madison St",
+    addressLocality: "Chicago",
+    addressRegion: "IL",
+    postalCode: "60607",
+    addressCountry: "US",
+  },
+  geo: {
+    "@type": "GeoCoordinates",
+    latitude: 41.8817,
+    longitude: -87.6528,
+  },
+  openingHoursSpecification: {
+    "@type": "OpeningHoursSpecification",
+    dayOfWeek: [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ],
+    opens: "12:00",
+    closes: "22:00",
+  },
+  hasMenu: "https://novagreek.com/nova-menu.pdf",
+  sameAs: [
+    "https://www.instagram.com/novafroyo/",
+    "https://www.tiktok.com/@novafroyo",
+  ],
 };
 
 export default function RootLayout({
@@ -43,6 +112,12 @@ export default function RootLayout({
       className={`${cinzel.variable} ${montserrat.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(localBusinessJsonLd),
+          }}
+        />
         {children}
         <script data-goatcounter="https://novafroyo.goatcounter.com/count" async src="//gc.zgo.at/count.js" />
       </body>

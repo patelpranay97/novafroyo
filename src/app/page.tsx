@@ -2,8 +2,7 @@ import { ShootingStars } from "./shooting-stars";
 import { StarIcon } from "./star-icon";
 
 const MARQUEE_ITEMS = [
-  "Swirling Soon",
-  "A New Star in the West Loop",
+  "Opening July 12th",
   "Tangy. Thick. Greek.",
   "Est. 2026",
 ];
@@ -134,7 +133,7 @@ export default function Home() {
       {/* Phase chip — anticipation hook */}
       <div className="bg-cream py-8 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-[0.45em] text-muted">
-          Opening Summer 2026 · West Loop, Chicago
+          A part of Cone in West Loop, Chicago.
         </p>
         <a
           href="https://maps.google.com/?q=1047+W+Madison+St,+Chicago,+IL+60607"

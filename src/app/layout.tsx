@@ -22,7 +22,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://novagreek.com"),
+  metadataBase: new URL("https://www.novafroyo.com"),
   title: "Nova — Greek Frozen Yogurt | Opening July 12 in Chicago's West Loop",
   description:
     "Nova is a Greek frozen yogurt shop opening July 12 at 1047 W Madison St in Chicago's West Loop. Thick, tangy Greek froyo with fresh toppings — part of Cone. Open daily 12–10 PM.",
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     title: "Nova — Greek Frozen Yogurt",
     description:
       "Opening July 12 in Chicago's West Loop. Thick, tangy Greek frozen yogurt — part of Cone.",
-    url: "https://novagreek.com",
+    url: "https://www.novafroyo.com",
     siteName: "Nova Greek Frozen Yogurt",
     locale: "en_US",
     type: "website",
@@ -61,9 +61,9 @@ const localBusinessJsonLd = {
   alternateName: "Nova Froyo",
   description:
     "Greek frozen yogurt shop in Chicago's West Loop. Thick, tangy Greek froyo with fresh toppings — part of Cone.",
-  url: "https://novagreek.com",
-  logo: "https://novagreek.com/logo.png",
-  image: "https://novagreek.com/logo.png",
+  url: "https://www.novafroyo.com",
+  logo: "https://www.novafroyo.com/logo.png",
+  image: "https://www.novafroyo.com/logo.png",
   foundingDate: "2026-07-12",
   servesCuisine: ["Frozen Yogurt", "Greek"],
   priceRange: "$",
@@ -94,7 +94,7 @@ const localBusinessJsonLd = {
     opens: "12:00",
     closes: "22:00",
   },
-  hasMenu: "https://novagreek.com/nova-menu.pdf",
+  hasMenu: "https://www.novafroyo.com/nova-menu.pdf",
   sameAs: [
     "https://www.instagram.com/novafroyo/",
     "https://www.tiktok.com/@novafroyo",

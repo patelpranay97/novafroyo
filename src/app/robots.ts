@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://novagreek.com/sitemap.xml",
+    sitemap: "https://www.novafroyo.com/sitemap.xml",
   };
 }

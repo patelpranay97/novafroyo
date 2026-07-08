@@ -23,9 +23,9 @@ const cormorant = Cormorant_Garamond({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.novafroyo.com"),
-  title: "Nova — Greek Frozen Yogurt | Opening July 12 in Chicago's West Loop",
+  title: "Nova | Greek Frozen Yogurt | Opening July 12 in Chicago's West Loop",
   description:
-    "Nova is a Greek frozen yogurt shop opening July 12 at 1047 W Madison St in Chicago's West Loop. Thick, tangy Greek froyo with fresh toppings — part of Cone. Open daily 12–10 PM.",
+    "Nova is a Greek frozen yogurt shop opening July 12 at 1047 W Madison St in Chicago's West Loop. Thick, tangy Greek froyo with fresh toppings, part of Cone. Open daily 12-10 PM.",
   keywords: [
     "Greek frozen yogurt",
     "froyo",
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "Nova — Greek Frozen Yogurt",
+    title: "Nova | Greek Frozen Yogurt",
     description:
-      "Opening July 12 in Chicago's West Loop. Thick, tangy Greek frozen yogurt — part of Cone.",
+      "Opening July 12 in Chicago's West Loop. Thick, tangy Greek frozen yogurt, part of Cone.",
     url: "https://www.novafroyo.com",
     siteName: "Nova Greek Frozen Yogurt",
     locale: "en_US",
@@ -48,9 +48,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Nova — Greek Frozen Yogurt",
+    title: "Nova | Greek Frozen Yogurt",
     description:
-      "Opening July 12 in Chicago's West Loop. Thick, tangy Greek frozen yogurt — part of Cone.",
+      "Opening July 12 in Chicago's West Loop. Thick, tangy Greek frozen yogurt, part of Cone.",
   },
 };
 
@@ -60,7 +60,7 @@ const localBusinessJsonLd = {
   name: "Nova Greek Frozen Yogurt",
   alternateName: "Nova Froyo",
   description:
-    "Greek frozen yogurt shop in Chicago's West Loop. Thick, tangy Greek froyo with fresh toppings — part of Cone.",
+    "Greek frozen yogurt shop in Chicago's West Loop. Thick, tangy Greek froyo with fresh toppings, part of Cone.",
   url: "https://www.novafroyo.com",
   logo: "https://www.novafroyo.com/logo.png",
   image: "https://www.novafroyo.com/logo.png",

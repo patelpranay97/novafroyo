@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ShootingStars } from "./shooting-stars";
 import { StarIcon } from "./star-icon";
 
@@ -34,13 +35,13 @@ export default function Home() {
 
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-6 sm:px-12 sm:py-8">
-        <a
+        <Link
           href="/"
           aria-label="Nova — home"
           className="font-display text-sm tracking-[0.4em] text-charcoal"
         >
           NOVA
-        </a>
+        </Link>
         <span className="flex items-center gap-5">
           <a
             href="https://www.instagram.com/novafroyo/"

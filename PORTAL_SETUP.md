@@ -1,0 +1,46 @@
+# Nova Portal — one-time setup
+
+The employee portal lives at `novafroyo.com/portal`. It needs a (free) Supabase
+project behind it. This takes about 10 minutes, once.
+
+## 1. Create the Supabase project
+
+1. Go to [supabase.com](https://supabase.com) -> New project.
+2. Name it anything (e.g. `nova-portal`), pick a strong database password
+   (you won't need it day-to-day), region `East US` is closest to Chicago.
+
+## 2. Create the tables
+
+1. In the project: **SQL Editor -> New query**.
+2. Paste the entire contents of [`supabase/schema.sql`](supabase/schema.sql) and hit **Run**.
+
+## 3. Make it owner-only
+
+1. **Authentication -> Sign In / Up**: turn **OFF** "Allow new users to sign up".
+2. **Authentication -> Users -> Add user -> Create new user**: your email +
+   a strong password. Check "Auto confirm user". This is your portal login.
+
+## 4. Give the site the keys
+
+In the project: **Settings -> API Keys**. You need two values:
+
+- **Project URL** (looks like `https://xxxx.supabase.co`)
+- **anon / public key** (the long one — safe to expose; row-level security
+  does the real protection)
+
+Add them in **two** places:
+
+**Locally** — create a file `.env.local` in the repo root (it's gitignored):
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+```
+
+**Vercel** — Project -> Settings -> Environment Variables -> add both for
+Production (and Preview), then **redeploy**.
+
+## 5. Log in
+
+Visit `novafroyo.com/portal`, sign in with the email + password from step 3.
+Add your employees in the Team tab and you're off.

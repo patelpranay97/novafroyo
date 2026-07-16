@@ -131,8 +131,8 @@ export function CalendarView({
         Tap a day to log who worked and the tips.
       </p>
 
-      {/* Grid */}
-      <div className="grid grid-cols-7 gap-px border border-charcoal/15 bg-charcoal/15">
+      {/* Grid — 10% larger on desktop (wider than the column, taller cells) */}
+      <div className="grid grid-cols-7 gap-px border border-charcoal/15 bg-charcoal/15 sm:-ml-[5%] sm:w-[110%]">
         {DAY_HEADERS.map((h, i) => (
           <div
             key={`${h}-${i}`}
@@ -143,13 +143,13 @@ export function CalendarView({
         ))}
         {cells.map((dateStr, i) =>
           dateStr === null ? (
-            <div key={`blank-${i}`} className="min-h-20 bg-cream/60" />
+            <div key={`blank-${i}`} className="min-h-20 bg-cream/60 sm:min-h-[88px]" />
           ) : (
             <button
               key={dateStr}
               type="button"
               onClick={() => setSelectedDate(dateStr)}
-              className={`flex min-h-20 flex-col items-stretch gap-1 bg-cream-soft p-1 text-left transition hover:bg-cream-deep ${
+              className={`flex min-h-20 flex-col items-stretch gap-1 bg-cream-soft p-1 text-left transition hover:bg-cream-deep sm:min-h-[88px] ${
                 dateStr === todayStr ? "outline outline-1 -outline-offset-1 outline-charcoal" : ""
               }`}
             >

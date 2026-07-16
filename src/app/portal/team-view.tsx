@@ -214,6 +214,11 @@ export function TeamView({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-display text-base tracking-[0.06em]">
                       {emp.name}
+                      {Number(emp.hourly_rate) === 0 && (
+                        <span className="ml-2 text-[9px] font-sans font-semibold uppercase tracking-[0.2em] text-[#6d5a8a]">
+                          Tip-only
+                        </span>
+                      )}
                       {!emp.active && (
                         <span className="ml-2 text-[9px] font-sans font-semibold uppercase tracking-[0.2em] text-muted">
                           Inactive

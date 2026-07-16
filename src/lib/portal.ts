@@ -146,3 +146,75 @@ export function fmtMoney(n: number): string {
 export function fmtHours(n: number): string {
   return `${Number(n.toFixed(2))}h`;
 }
+
+// ---------- Weekly payout plan (tips-waterfall) ----------
+// Tips first bring everyone up to the target hourly ("guarantee"); whatever
+// remains is an end-of-week bonus split by hours. The owner only adds money
+// when the pool can't fund the guarantee.
+
+export type PayoutPerson = { id: string; hours: number; wages: number };
+
+export type PayoutPlan = {
+  perPerson: {
+    id: string;
+    guarantee: number; // tips used to reach the target
+    bonus: number; // share of leftover tips (by hours)
+    fromTips: number; // guarantee + bonus
+    ownerAdds: number; // top-up from the owner when tips fall short
+    total: number; // wages + fromTips + ownerAdds
+    effective: number | null; // total / hours
+  }[];
+  totalNeed: number; // sum of gaps to target
+  tipsToGuarantee: number;
+  bonusPool: number;
+  ownerAdds: number;
+  covered: boolean; // pool fully funds the guarantee
+};
+
+export function planPayout(
+  people: PayoutPerson[],
+  pool: number,
+  target: number,
+): PayoutPlan {
+  const needs = people.map((p) =>
+    Math.max(0, round2(target * p.hours - p.wages)),
+  );
+  const totalNeed = round2(needs.reduce((a, b) => a + b, 0));
+  const poolCents = Math.round(pool * 100);
+  const needCents = Math.round(totalNeed * 100);
+  const covered = needCents <= poolCents;
+  let guarantees: number[];
+  let bonuses: number[];
+  let bonusPool = 0;
+  if (covered) {
+    guarantees = needs;
+    bonusPool = round2((poolCents - needCents) / 100);
+    bonuses = splitProportional(bonusPool, people.map((p) => p.hours));
+  } else {
+    // Pool can't cover everyone: distribute it proportional to each gap.
+    guarantees = splitProportional(pool, needs);
+    bonuses = people.map(() => 0);
+  }
+  const perPerson = people.map((p, i) => {
+    const fromTips = round2(guarantees[i] + bonuses[i]);
+    const ownerAdds = round2(Math.max(0, needs[i] - guarantees[i]));
+    const total = round2(p.wages + fromTips + ownerAdds);
+    return {
+      id: p.id,
+      guarantee: guarantees[i],
+      bonus: bonuses[i],
+      fromTips,
+      ownerAdds,
+      total,
+      effective: p.hours > 0 ? round2(total / p.hours) : null,
+    };
+  });
+  return {
+    perPerson,
+    totalNeed,
+    tipsToGuarantee: round2(Math.min(totalNeed, pool)),
+    bonusPool,
+    ownerAdds: round2(perPerson.reduce((a, p) => a + p.ownerAdds, 0)),
+    covered,
+  };
+}

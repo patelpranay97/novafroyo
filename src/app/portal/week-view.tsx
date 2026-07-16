@@ -11,6 +11,7 @@ import {
   fmtHours,
   fmtMoney,
   fmtWeekRange,
+  planPayout,
   round2,
   splitProportional,
   startOfWeek,
@@ -156,42 +157,18 @@ export function WeekView({
       .filter((d) => d.amount > 0);
   }, [weekDateStrs, tips, weekShifts]);
 
-  // Each employee's weekly tip share = sum of that day's tips split evenly
-  // among whoever worked that day. Used for the wage check.
-  const tipShareByEmp = useMemo(() => {
-    const workersByDate = new Map<string, string[]>();
-    for (const s of weekShifts) {
-      const arr = workersByDate.get(s.work_date) ?? [];
-      if (!arr.includes(s.employee_id)) arr.push(s.employee_id);
-      workersByDate.set(s.work_date, arr);
-    }
-    const share = new Map<string, number>();
-    for (const [date, workers] of workersByDate) {
-      const dayTip = Number(tips.find((t) => t.work_date === date)?.amount ?? 0);
-      if (dayTip <= 0 || workers.length === 0) continue;
-      const per = dayTip / workers.length;
-      for (const empId of workers) {
-        share.set(empId, (share.get(empId) ?? 0) + per);
-      }
-    }
-    return share;
-  }, [weekShifts, tips]);
-
-  // Wage check: does wages + tip share clear the target hourly?
-  // Follows the Tip Splitter mode, so toggling Even / By hours lets the owner
-  // compare how each split method lands against the target.
-  const wageCheck = useMemo(() => {
-    return rows.map((r, i) => {
-      const tipShare =
-        splitMode === "hours"
-          ? (hourShares[i] ?? 0)
-          : (tipShareByEmp.get(r.empId) ?? 0);
-      const total = r.owed + tipShare;
-      const effective = r.hours > 0 ? total / r.hours : 0;
-      const shortfall = Math.max(0, round2(wageTarget * r.hours - total));
-      return { ...r, tipShare: round2(tipShare), effective, shortfall };
-    });
-  }, [rows, tipShareByEmp, hourShares, splitMode, wageTarget]);
+  // Payout plan: tips first bring everyone to the target hourly, the leftover
+  // is an end-of-week bonus split by hours, and the owner only adds money
+  // when the pool can't fund the guarantee.
+  const payout = useMemo(
+    () =>
+      planPayout(
+        rows.map((r) => ({ id: r.empId, hours: r.hours, wages: r.owed })),
+        weekTips,
+        wageTarget,
+      ),
+    [rows, weekTips, wageTarget],
+  );
 
   async function togglePaid(row: (typeof rows)[number]) {
     setBusyId(row.empId);
@@ -225,6 +202,21 @@ export function WeekView({
       ),
       `Payroll: ${fmtMoney(totalPayroll)}`,
       `Tips: ${fmtMoney(weekTips)}`,
+      ...(rows.length > 0
+        ? [
+            ``,
+            `Payout plan @ ${fmtMoney(wageTarget)}/hr:`,
+            ...payout.perPerson.map((p, i) => {
+              const r = rows[i];
+              const extra =
+                p.ownerAdds > 0 ? ` + ${fmtMoney(p.ownerAdds)} from you` : "";
+              return `${r.emp?.name ?? "?"}: ${fmtMoney(r.owed)} wages + ${fmtMoney(p.fromTips)} tips${extra} = ${fmtMoney(p.total)}`;
+            }),
+            payout.covered
+              ? `Bonus pool: ${fmtMoney(payout.bonusPool)} (split by hours)`
+              : `You add: ${fmtMoney(payout.ownerAdds)} to reach ${fmtMoney(wageTarget)}/hr`,
+          ]
+        : []),
     ];
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
@@ -480,6 +472,7 @@ export function WeekView({
                         )}{" "}
                         each
                       </span>
+                      <span className="text-[10px] text-muted/70"> (even)</span>
                     </>
                   ) : (
                     <> · no shifts logged</>
@@ -491,11 +484,11 @@ export function WeekView({
         </Card>
       )}
 
-      {/* Wage check — does everyone clear the target hourly? */}
+      {/* Payout plan — tips guarantee the target, leftover becomes a bonus */}
       {rows.length > 0 && (
         <Card>
           <div className="flex items-center justify-between gap-3">
-            <SectionLabel>Wage check</SectionLabel>
+            <SectionLabel>Payout plan</SectionLabel>
             <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
               Target
               <span className="relative">
@@ -516,50 +509,68 @@ export function WeekView({
               /hr
             </label>
           </div>
-          <p className="mt-1 text-[10px] text-muted/80">
-            Using the{" "}
-            <span className="font-semibold text-charcoal">
-              {splitMode === "hours" ? "by hours" : "even"}
-            </span>{" "}
-            tip split — flip the Tip Splitter toggle above to compare.
+          <p className="mt-1 text-[10px] leading-relaxed text-muted/80">
+            Tips first bring everyone to {fmtMoney(wageTarget)}/hr; what&apos;s
+            left is a bonus split by hours.
           </p>
-          <div className="mt-3 flex flex-col gap-2">
-            {wageCheck.map((r) => (
-              <div
-                key={r.empId}
-                className="flex items-center justify-between gap-2 text-sm"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: r.emp?.color ?? "#999" }}
-                    aria-hidden="true"
-                  />
-                  <span className="truncate">{r.emp?.name ?? "Unknown"}</span>
-                  <span className="shrink-0 text-xs text-muted">
-                    ≈ {fmtMoney(r.effective)}/hr
-                  </span>
-                </span>
-                {r.shortfall > 0 ? (
-                  <span className="shrink-0 font-semibold text-[#a04a4a]">
-                    {fmtMoney(r.shortfall)} short
-                  </span>
-                ) : (
-                  <span className="shrink-0 font-semibold text-[#5a7d4f]">
-                    ✓ clears
-                  </span>
-                )}
-              </div>
-            ))}
+
+          {/* Headline */}
+          {payout.covered ? (
+            <p className="mt-3 text-sm font-semibold text-[#5a7d4f]">
+              ✓ Tips cover everyone to {fmtMoney(wageTarget)}/hr
+              {payout.bonusPool > 0 && (
+                <> · {fmtMoney(payout.bonusPool)} bonus pool</>
+              )}
+            </p>
+          ) : (
+            <p className="mt-3 text-sm font-semibold text-[#a04a4a]">
+              Tips cover {fmtMoney(payout.tipsToGuarantee)} of{" "}
+              {fmtMoney(payout.totalNeed)} needed — you add{" "}
+              {fmtMoney(payout.ownerAdds)}
+            </p>
+          )}
+
+          <div className="mt-3 flex flex-col gap-2.5">
+            {payout.perPerson.map((p, i) => {
+              const r = rows[i];
+              return (
+                <div key={p.id}>
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: r.emp?.color ?? "#999" }}
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">
+                        {r.emp?.name ?? "Unknown"}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-display">
+                      {fmtMoney(p.total)}
+                    </span>
+                  </div>
+                  <p className="ml-4 text-xs text-muted">
+                    {fmtMoney(r.owed)} wages · {fmtMoney(p.fromTips)} tips
+                    {p.bonus > 0 && (
+                      <> (incl. {fmtMoney(p.bonus)} bonus)</>
+                    )}
+                    {p.ownerAdds > 0 && (
+                      <>
+                        {" · "}
+                        <span className="font-semibold text-[#a04a4a]">
+                          +{fmtMoney(p.ownerAdds)} from you
+                        </span>
+                      </>
+                    )}
+                    {p.effective !== null && (
+                      <> · ≈{fmtMoney(p.effective)}/hr</>
+                    )}
+                  </p>
+                </div>
+              );
+            })}
           </div>
-          <p className="mt-3 text-[10px] leading-relaxed text-muted/80">
-            Base pay +{" "}
-            {splitMode === "hours"
-              ? "tips split by hours worked"
-              : "tips split evenly per day"}{" "}
-            vs {fmtMoney(wageTarget)}/hr. “Short” is the top-up to reach the
-            target.
-          </p>
         </Card>
       )}
 

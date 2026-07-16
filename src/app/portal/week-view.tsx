@@ -178,15 +178,20 @@ export function WeekView({
   }, [weekShifts, tips]);
 
   // Wage check: does wages + tip share clear the target hourly?
+  // Follows the Tip Splitter mode, so toggling Even / By hours lets the owner
+  // compare how each split method lands against the target.
   const wageCheck = useMemo(() => {
-    return rows.map((r) => {
-      const tipShare = tipShareByEmp.get(r.empId) ?? 0;
+    return rows.map((r, i) => {
+      const tipShare =
+        splitMode === "hours"
+          ? (hourShares[i] ?? 0)
+          : (tipShareByEmp.get(r.empId) ?? 0);
       const total = r.owed + tipShare;
       const effective = r.hours > 0 ? total / r.hours : 0;
       const shortfall = Math.max(0, round2(wageTarget * r.hours - total));
       return { ...r, tipShare: round2(tipShare), effective, shortfall };
     });
-  }, [rows, tipShareByEmp, wageTarget]);
+  }, [rows, tipShareByEmp, hourShares, splitMode, wageTarget]);
 
   async function togglePaid(row: (typeof rows)[number]) {
     setBusyId(row.empId);
@@ -511,6 +516,13 @@ export function WeekView({
               /hr
             </label>
           </div>
+          <p className="mt-1 text-[10px] text-muted/80">
+            Using the{" "}
+            <span className="font-semibold text-charcoal">
+              {splitMode === "hours" ? "by hours" : "even"}
+            </span>{" "}
+            tip split — flip the Tip Splitter toggle above to compare.
+          </p>
           <div className="mt-3 flex flex-col gap-2">
             {wageCheck.map((r) => (
               <div
@@ -541,8 +553,12 @@ export function WeekView({
             ))}
           </div>
           <p className="mt-3 text-[10px] leading-relaxed text-muted/80">
-            Base pay + evenly-split tips vs {fmtMoney(wageTarget)}/hr. “Short” is
-            the top-up to reach the target.
+            Base pay +{" "}
+            {splitMode === "hours"
+              ? "tips split by hours worked"
+              : "tips split evenly per day"}{" "}
+            vs {fmtMoney(wageTarget)}/hr. “Short” is the top-up to reach the
+            target.
           </p>
         </Card>
       )}

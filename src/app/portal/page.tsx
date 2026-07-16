@@ -10,13 +10,15 @@ import { Toast } from "./ui";
 import { WeekView } from "./week-view";
 import { CalendarView } from "./calendar-view";
 import { TeamView } from "./team-view";
+import { InsightsView } from "./insights-view";
 
-type Tab = "week" | "calendar" | "team";
+type Tab = "week" | "calendar" | "team" | "insights";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "week", label: "This Week" },
   { id: "calendar", label: "Calendar" },
   { id: "team", label: "Team" },
+  { id: "insights", label: "Insights" },
 ];
 
 export default function PortalPage() {
@@ -111,7 +113,7 @@ export default function PortalPage() {
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={`flex-1 px-2 py-3 text-[10px] font-semibold uppercase tracking-[0.3em] transition sm:text-[11px] ${
+            className={`flex-1 whitespace-nowrap px-1 py-3 text-[9px] font-semibold uppercase tracking-[0.18em] transition sm:px-2 sm:text-[11px] sm:tracking-[0.3em] ${
               tab === t.id
                 ? "border-b-2 border-charcoal text-charcoal"
                 : "border-b-2 border-transparent text-muted hover:text-charcoal"
@@ -174,6 +176,9 @@ export default function PortalPage() {
                 onChange={refresh}
                 notify={notify}
               />
+            )}
+            {tab === "insights" && (
+              <InsightsView employees={employees} shifts={shifts} tips={tips} />
             )}
           </>
         )}

@@ -12,6 +12,7 @@ import {
   fmtMoney,
   fmtWeekRange,
   round2,
+  splitProportional,
   startOfWeek,
   sumHours,
   sumPay,
@@ -108,8 +109,23 @@ export function WeekView({
     rows.reduce((sum, r) => sum + r.unpaidAmount, 0),
   );
 
+  // The manual "N ways" override is specific to the week being viewed. Reset it
+  // when the week changes (render-time reset — the idiomatic alternative to an
+  // effect) so the split never carries a stale headcount into another week.
+  const [splitWeek, setSplitWeek] = useState(weekStart);
+  if (weekStart !== splitWeek) {
+    setSplitWeek(weekStart);
+    setSplitWays(null);
+  }
+
   const isCurrentWeek = toDateStr(startOfWeek(new Date())) === weekStart;
   const ways = splitWays ?? Math.max(rows.length, 1);
+
+  // Cent-exact by-hours shares (sum equals the pot exactly).
+  const hourShares = useMemo(
+    () => splitProportional(weekTips, rows.map((r) => r.hours)),
+    [weekTips, rows],
+  );
 
   async function togglePaid(row: (typeof rows)[number]) {
     setBusyId(row.empId);
@@ -349,7 +365,7 @@ export function WeekView({
                 hours.
               </p>
             ) : (
-              rows.map((r) => (
+              rows.map((r, i) => (
                 <div
                   key={r.empId}
                   className="flex items-center justify-between text-sm"
@@ -366,9 +382,7 @@ export function WeekView({
                     </span>
                   </span>
                   <span className="font-display">
-                    {totalHours > 0
-                      ? fmtMoney(round2((weekTips * r.hours) / totalHours))
-                      : fmtMoney(0)}
+                    {fmtMoney(hourShares[i] ?? 0)}
                   </span>
                 </div>
               ))

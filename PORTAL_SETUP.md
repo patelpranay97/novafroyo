@@ -25,8 +25,11 @@ project behind it. This takes about 10 minutes, once.
 In the project: **Settings -> API Keys**. You need two values:
 
 - **Project URL** (looks like `https://xxxx.supabase.co`)
-- **anon / public key** (the long one — safe to expose; row-level security
-  does the real protection)
+- The key labeled **anon / public** (newer projects call it **publishable**,
+  starting `sb_publishable_...`). This one is safe to ship to the browser —
+  row-level security does the real protection. **Never** use the
+  **service_role** / **secret** key here: it bypasses RLS and would expose
+  everything.
 
 Add them in **two** places:
 

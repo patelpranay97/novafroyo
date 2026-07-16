@@ -82,11 +82,18 @@ export function fmtWeekRange(monday: Date): string {
   const sunday = addDays(monday, 6);
   const m1 = MONTHS[monday.getMonth()].slice(0, 3);
   const m2 = MONTHS[sunday.getMonth()].slice(0, 3);
+  const y1 = monday.getFullYear();
+  const y2 = sunday.getFullYear();
+  // A payroll week that straddles New Year's must show both years, or the
+  // December work gets filed under January's year.
+  if (y1 !== y2) {
+    return `${m1} ${monday.getDate()}, ${y1} – ${m2} ${sunday.getDate()}, ${y2}`;
+  }
   const range =
     monday.getMonth() === sunday.getMonth()
       ? `${m1} ${monday.getDate()}–${sunday.getDate()}`
       : `${m1} ${monday.getDate()} – ${m2} ${sunday.getDate()}`;
-  return `${range}, ${sunday.getFullYear()}`;
+  return `${range}, ${y2}`;
 }
 
 export function fmtMonthTitle(year: number, month: number): string {
@@ -108,6 +115,27 @@ export function sumHours(shifts: Shift[]): number {
 
 export function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * Split `pot` across `weights` so the shares sum EXACTLY to `pot` to the cent
+ * (largest-remainder allocation). Prevents paying out a cent or two more/less
+ * than was actually collected.
+ */
+export function splitProportional(pot: number, weights: number[]): number[] {
+  const totalW = weights.reduce((a, b) => a + b, 0);
+  const potCents = Math.round(pot * 100);
+  if (totalW <= 0 || potCents <= 0) return weights.map(() => 0);
+  const exact = weights.map((w) => (potCents * w) / totalW);
+  const cents = exact.map((c) => Math.floor(c));
+  let leftover = potCents - cents.reduce((a, b) => a + b, 0);
+  const byFrac = exact
+    .map((c, i) => ({ i, frac: c - Math.floor(c) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (let k = 0; leftover > 0 && k < byFrac.length; k++, leftover--) {
+    cents[byFrac[k].i]++;
+  }
+  return cents.map((c) => c / 100);
 }
 
 export function fmtMoney(n: number): string {

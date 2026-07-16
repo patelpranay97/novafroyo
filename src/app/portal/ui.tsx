@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+
 // Small shared UI pieces for the portal, kept in Nova's visual language.
 
 export const inputCls =
@@ -42,14 +44,22 @@ export function Modal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  // Only close when the press STARTS and ENDS on the backdrop itself, so a
+  // drag-select inside an input that releases over the backdrop doesn't close
+  // the modal and discard unsaved typing.
+  const downOnBackdrop = useRef(false);
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-charcoal/40 p-0 sm:items-center sm:p-6"
-      onClick={onClose}
+      onMouseDown={(e) => {
+        downOnBackdrop.current = e.target === e.currentTarget;
+      }}
+      onClick={(e) => {
+        if (downOnBackdrop.current && e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className="max-h-[92dvh] w-full max-w-lg overflow-y-auto border border-charcoal/20 bg-cream p-5 sm:max-h-[85dvh]"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between gap-4">
           <h2 className="font-display text-lg tracking-[0.1em] text-charcoal">

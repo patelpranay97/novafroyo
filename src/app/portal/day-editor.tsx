@@ -99,17 +99,33 @@ export function DayEditor({
     setBusy(false);
   }
 
-  async function updateHours(shift: Shift, value: string) {
-    const h = Number(value);
-    if (!Number.isFinite(h) || h <= 0 || h > 24 || h === Number(shift.hours)) {
+  async function updateHours(shift: Shift, input: HTMLInputElement) {
+    const raw = input.value.trim();
+    const h = Number(raw);
+    const original = Number(shift.hours);
+    // Reject blank/out-of-range instead of silently dropping — revert the field.
+    if (raw === "" || !Number.isFinite(h) || h <= 0 || h > 24) {
+      input.value = String(original);
+      if (raw !== "") notify("Hours must be between 0 and 24");
       return;
     }
+    if (h === original) return;
+    // If this shift was already paid, changing the hours changes what's owed —
+    // reopen it as unpaid so the new balance resurfaces in This Week.
+    const wasPaid = shift.paid_at != null;
+    const patch: { hours: number; paid_at?: null } = { hours: h };
+    if (wasPaid) patch.paid_at = null;
     const { error } = await supabase
       .from("shifts")
-      .update({ hours: h })
+      .update(patch)
       .eq("id", shift.id);
-    if (error) notify(`Couldn't update hours: ${error.message}`);
-    else await onChange();
+    if (error) {
+      notify(`Couldn't update hours: ${error.message}`);
+      input.value = String(original);
+    } else {
+      await onChange();
+      if (wasPaid) notify("Hours changed — shift reopened as unpaid");
+    }
   }
 
   async function saveTip() {
@@ -165,6 +181,11 @@ export function DayEditor({
                     />
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {emp?.name ?? "Unknown"}
+                      {s.paid_at && (
+                        <span className="ml-2 align-middle text-[9px] font-semibold uppercase tracking-[0.15em] text-[#5a7d4f]">
+                          Paid
+                        </span>
+                      )}
                       {s.note && (
                         <span className="ml-2 text-xs text-muted">
                           {s.note}
@@ -178,7 +199,7 @@ export function DayEditor({
                       min="0.25"
                       max="24"
                       defaultValue={Number(s.hours)}
-                      onBlur={(e) => updateHours(s, e.target.value)}
+                      onBlur={(e) => updateHours(s, e.target)}
                       aria-label={`Hours for ${emp?.name ?? "employee"}`}
                       className="w-16 border border-charcoal/25 bg-cream px-2 py-1 text-right text-sm outline-none focus:border-charcoal"
                     />

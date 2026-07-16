@@ -57,6 +57,29 @@ export function CalendarView({
     [tips],
   );
 
+  // Chip label per employee: first name, plus a last initial only when another
+  // employee shares that first name (so two "Sam"s stay distinguishable).
+  const labelById = useMemo(() => {
+    const firstNameCount = new Map<string, number>();
+    for (const e of employees) {
+      const first = e.name.trim().split(/\s+/)[0];
+      firstNameCount.set(first, (firstNameCount.get(first) ?? 0) + 1);
+    }
+    const map = new Map<string, string>();
+    for (const e of employees) {
+      const parts = e.name.trim().split(/\s+/);
+      const first = parts[0];
+      const lastInitial = parts.length > 1 ? parts[parts.length - 1][0] : "";
+      map.set(
+        e.id,
+        (firstNameCount.get(first) ?? 0) > 1 && lastInitial
+          ? `${first} ${lastInitial}`
+          : first,
+      );
+    }
+    return map;
+  }, [employees]);
+
   // Build the month grid: leading blanks (Monday-start), then each day.
   const cells = useMemo(() => {
     const first = new Date(year, month, 1);
@@ -154,7 +177,7 @@ export function CalendarView({
                     className="truncate rounded-sm px-1 py-px text-[9px] leading-tight text-cream"
                     style={{ background: emp?.color ?? "#999" }}
                   >
-                    {(emp?.name ?? "?").split(" ")[0]} {Number(s.hours)}h
+                    {labelById.get(s.employee_id) ?? "?"} {Number(s.hours)}h
                   </span>
                 );
               })}

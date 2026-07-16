@@ -81,15 +81,25 @@ export function TeamView({
     setBusy(false);
   }
 
-  async function updateRate(emp: Employee, value: string) {
-    const r = Number(value);
-    if (!Number.isFinite(r) || r < 0 || r === Number(emp.hourly_rate)) return;
+  async function updateRate(emp: Employee, input: HTMLInputElement) {
+    const raw = input.value.trim();
+    const r = Number(raw);
+    const original = Number(emp.hourly_rate);
+    // A blank or invalid field must NOT write $0 — revert the display instead.
+    if (raw === "" || !Number.isFinite(r) || r < 0) {
+      input.value = String(original);
+      if (raw !== "") notify("Enter an hourly rate of $0 or more");
+      return;
+    }
+    if (r === original) return;
     const { error } = await supabase
       .from("employees")
       .update({ hourly_rate: r })
       .eq("id", emp.id);
-    if (error) notify(`Couldn't update rate: ${error.message}`);
-    else {
+    if (error) {
+      notify(`Couldn't update rate: ${error.message}`);
+      input.value = String(original);
+    } else {
       await onChange();
       notify(`${emp.name}'s rate is now ${fmtMoney(r)}/hr for new shifts`);
     }
@@ -226,7 +236,7 @@ export function TeamView({
                       step="0.25"
                       min="0"
                       defaultValue={Number(emp.hourly_rate)}
-                      onBlur={(e) => updateRate(emp, e.target.value)}
+                      onBlur={(e) => updateRate(emp, e.target)}
                       aria-label={`Hourly rate for ${emp.name}`}
                       className="w-24 border border-charcoal/25 bg-cream py-1.5 pl-6 pr-2 text-right text-sm outline-none focus:border-charcoal"
                     />

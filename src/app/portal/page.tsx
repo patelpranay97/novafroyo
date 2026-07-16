@@ -29,6 +29,7 @@ export default function PortalPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [tips, setTips] = useState<TipDay[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -56,12 +57,14 @@ export default function PortalPage() {
     ]);
     const err = emp.error ?? shf.error ?? tps.error;
     if (err) {
+      setLoadError(err.message);
       notify(`Couldn't load data: ${err.message}`);
       return;
     }
     setEmployees((emp.data as Employee[]) ?? []);
     setShifts((shf.data as Shift[]) ?? []);
     setTips((tps.data as TipDay[]) ?? []);
+    setLoadError(null);
     setLoaded(true);
   }, [supabase, notify]);
 
@@ -120,7 +123,24 @@ export default function PortalPage() {
       </nav>
 
       <main className="mx-auto w-full max-w-3xl px-4 py-6 pb-20 sm:px-6">
-        {!loaded ? (
+        {loadError && !loaded ? (
+          <div className="py-16 text-center">
+            <p className="text-sm text-[#a04a4a]">Couldn&apos;t load your data.</p>
+            <p className="mx-auto mt-1 max-w-xs text-xs text-muted">
+              {loadError}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setLoadError(null);
+                void refresh();
+              }}
+              className="mt-4 border border-charcoal/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-charcoal transition hover:bg-charcoal hover:text-cream"
+            >
+              Try again
+            </button>
+          </div>
+        ) : !loaded ? (
           <p className="py-16 text-center text-[10px] font-semibold uppercase tracking-[0.4em] text-muted">
             Loading…
           </p>

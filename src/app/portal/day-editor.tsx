@@ -224,20 +224,20 @@ export function DayEditor({
           {/* Add shift */}
           {addable.length > 0 ? (
             <form onSubmit={addShift} className="mt-3 flex flex-col gap-2">
-              <div className="flex gap-2">
-                <select
-                  value={empId}
-                  onChange={(e) => setEmpId(e.target.value)}
-                  aria-label="Employee"
-                  className={`${inputCls} flex-1`}
-                >
-                  <option value="">Add someone…</option>
-                  {addable.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.name}
-                    </option>
-                  ))}
-                </select>
+              <select
+                value={empId}
+                onChange={(e) => setEmpId(e.target.value)}
+                aria-label="Employee"
+                className={inputCls}
+              >
+                <option value="">Add someone…</option>
+                {addable.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1.5">
                 <input
                   type="number"
                   inputMode="decimal"
@@ -248,16 +248,14 @@ export function DayEditor({
                   value={hours}
                   onChange={(e) => setHours(e.target.value)}
                   aria-label="Hours"
-                  className={`${inputCls} w-24`}
+                  className="w-24 shrink-0 rounded-none border border-charcoal/25 bg-cream-soft px-3 py-2 text-sm text-charcoal outline-none transition placeholder:text-muted/60 focus:border-charcoal"
                 />
-              </div>
-              <div className="flex items-center gap-1.5">
                 {QUICK_HOURS.map((h) => (
                   <button
                     key={h}
                     type="button"
                     onClick={() => setHours(String(h))}
-                    className={`border px-2.5 py-1 text-[11px] transition ${
+                    className={`flex-1 border px-2 py-2 text-[11px] transition ${
                       hours === String(h)
                         ? "border-charcoal bg-charcoal text-cream"
                         : "border-charcoal/20 text-muted hover:border-charcoal hover:text-charcoal"
@@ -266,14 +264,14 @@ export function DayEditor({
                     {h}h
                   </button>
                 ))}
-                <input
-                  type="text"
-                  placeholder="Note (optional)"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  className={`${inputCls} ml-auto min-w-0 flex-1`}
-                />
               </div>
+              <input
+                type="text"
+                placeholder="Note (optional)"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className={inputCls}
+              />
               <button
                 type="submit"
                 disabled={busy || !empId || !hours}

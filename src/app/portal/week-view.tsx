@@ -42,6 +42,20 @@ export function WeekView({
   const [splitMode, setSplitMode] = useState<"even" | "hours">("even");
   const [splitWays, setSplitWays] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [wageTarget, setWageTarget] = useState<number>(() => {
+    if (typeof window === "undefined") return 17;
+    const saved = Number(window.localStorage.getItem("nova_wage_target"));
+    return saved > 0 ? saved : 17;
+  });
+
+  function updateWageTarget(value: string) {
+    const v = Number(value);
+    if (!Number.isFinite(v) || v < 0) return;
+    setWageTarget(v);
+    try {
+      window.localStorage.setItem("nova_wage_target", String(v));
+    } catch {}
+  }
 
   const weekDateStrs = useMemo(() => weekDates(monday), [monday]);
   const weekStart = weekDateStrs[0];
@@ -126,6 +140,53 @@ export function WeekView({
     () => splitProportional(weekTips, rows.map((r) => r.hours)),
     [weekTips, rows],
   );
+
+  // Each day's tips + how many worked, for the per-day breakdown.
+  const tipDays = useMemo(() => {
+    return weekDateStrs
+      .map((date) => {
+        const amount = round2(
+          Number(tips.find((t) => t.work_date === date)?.amount ?? 0),
+        );
+        const workers = new Set(
+          weekShifts.filter((s) => s.work_date === date).map((s) => s.employee_id),
+        );
+        return { date, amount, workerCount: workers.size };
+      })
+      .filter((d) => d.amount > 0);
+  }, [weekDateStrs, tips, weekShifts]);
+
+  // Each employee's weekly tip share = sum of that day's tips split evenly
+  // among whoever worked that day. Used for the wage check.
+  const tipShareByEmp = useMemo(() => {
+    const workersByDate = new Map<string, string[]>();
+    for (const s of weekShifts) {
+      const arr = workersByDate.get(s.work_date) ?? [];
+      if (!arr.includes(s.employee_id)) arr.push(s.employee_id);
+      workersByDate.set(s.work_date, arr);
+    }
+    const share = new Map<string, number>();
+    for (const [date, workers] of workersByDate) {
+      const dayTip = Number(tips.find((t) => t.work_date === date)?.amount ?? 0);
+      if (dayTip <= 0 || workers.length === 0) continue;
+      const per = dayTip / workers.length;
+      for (const empId of workers) {
+        share.set(empId, (share.get(empId) ?? 0) + per);
+      }
+    }
+    return share;
+  }, [weekShifts, tips]);
+
+  // Wage check: does wages + tip share clear the target hourly?
+  const wageCheck = useMemo(() => {
+    return rows.map((r) => {
+      const tipShare = tipShareByEmp.get(r.empId) ?? 0;
+      const total = r.owed + tipShare;
+      const effective = r.hours > 0 ? total / r.hours : 0;
+      const shortfall = Math.max(0, round2(wageTarget * r.hours - total));
+      return { ...r, tipShare: round2(tipShare), effective, shortfall };
+    });
+  }, [rows, tipShareByEmp, wageTarget]);
 
   async function togglePaid(row: (typeof rows)[number]) {
     setBusyId(row.empId);
@@ -390,6 +451,101 @@ export function WeekView({
           </div>
         )}
       </Card>
+
+      {/* Tips by day */}
+      {tipDays.length > 0 && (
+        <Card>
+          <SectionLabel>Tips by day</SectionLabel>
+          <div className="mt-3 flex flex-col gap-2">
+            {tipDays.map((d) => (
+              <div
+                key={d.date}
+                className="flex items-center justify-between text-sm"
+              >
+                <span className="text-charcoal">{fmtDayShort(d.date)}</span>
+                <span className="text-muted">
+                  {fmtMoney(d.amount)}
+                  {d.workerCount > 0 ? (
+                    <>
+                      {" · "}
+                      {d.workerCount} worked{" · "}
+                      <span className="font-semibold text-charcoal">
+                        {fmtMoney(
+                          Math.floor((d.amount / d.workerCount) * 100) / 100,
+                        )}{" "}
+                        each
+                      </span>
+                    </>
+                  ) : (
+                    <> · no shifts logged</>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Wage check — does everyone clear the target hourly? */}
+      {rows.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <SectionLabel>Wage check</SectionLabel>
+            <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
+              Target
+              <span className="relative">
+                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted">
+                  $
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.25"
+                  min="0"
+                  value={wageTarget}
+                  onChange={(e) => updateWageTarget(e.target.value)}
+                  aria-label="Target hourly wage"
+                  className="w-16 border border-charcoal/25 bg-cream py-1 pl-5 pr-1 text-right text-sm normal-case tracking-normal outline-none focus:border-charcoal"
+                />
+              </span>
+              /hr
+            </label>
+          </div>
+          <div className="mt-3 flex flex-col gap-2">
+            {wageCheck.map((r) => (
+              <div
+                key={r.empId}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: r.emp?.color ?? "#999" }}
+                    aria-hidden="true"
+                  />
+                  <span className="truncate">{r.emp?.name ?? "Unknown"}</span>
+                  <span className="shrink-0 text-xs text-muted">
+                    ≈ {fmtMoney(r.effective)}/hr
+                  </span>
+                </span>
+                {r.shortfall > 0 ? (
+                  <span className="shrink-0 font-semibold text-[#a04a4a]">
+                    {fmtMoney(r.shortfall)} short
+                  </span>
+                ) : (
+                  <span className="shrink-0 font-semibold text-[#5a7d4f]">
+                    ✓ clears
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[10px] leading-relaxed text-muted/80">
+            Base pay + evenly-split tips vs {fmtMoney(wageTarget)}/hr. “Short” is
+            the top-up to reach the target.
+          </p>
+        </Card>
+      )}
 
       <button type="button" onClick={copySummary} className={btnCls}>
         Copy week summary

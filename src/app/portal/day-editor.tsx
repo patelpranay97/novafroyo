@@ -130,7 +130,10 @@ export function DayEditor({
 
   async function saveTip() {
     setBusy(true);
-    if (tipAmount.trim() === "" || tipNum === 0) {
+    // Round to whole cents up front — the DB column is numeric(8,2), and a
+    // sub-cent entry that rounds to 0 must clear the row, not store $0.00.
+    const rounded = Math.round(tipNum * 100) / 100;
+    if (tipAmount.trim() === "" || rounded === 0) {
       const { error } = await supabase
         .from("tips")
         .delete()
@@ -145,7 +148,7 @@ export function DayEditor({
     } else {
       const { error } = await supabase.from("tips").upsert({
         work_date: date,
-        amount: tipNum,
+        amount: rounded,
         updated_at: new Date().toISOString(),
       });
       if (error) notify(`Couldn't save tips: ${error.message}`);

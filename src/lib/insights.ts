@@ -9,6 +9,7 @@ import {
   parseDateStr,
   round2,
   shiftPay,
+  splitProportional,
   startOfWeek,
   toDateStr,
   addDays,
@@ -61,7 +62,8 @@ export function monthTotals(
 /** Percent change current vs previous; null when previous is 0/absent. */
 export function pctDelta(current: number, previous: number): number | null {
   if (previous <= 0) return null;
-  return Math.round(((current - previous) / previous) * 100);
+  const p = Math.round(((current - previous) / previous) * 100);
+  return p === 0 ? 0 : p; // normalize -0 so tiny declines can't read as "up"
 }
 
 // ---------- Tips by weekday ----------
@@ -92,19 +94,26 @@ export function tipsByWeekday(shifts: Shift[], tips: TipDay[]): WeekdayStat[] {
     tipsPerLaborHour: null,
   }));
   const tipSum = new Array(7).fill(0);
+  // The labor-hour ratio only counts tips from days that also have shifts
+  // logged — otherwise tips from shiftless days inflate the $/labor-hr.
+  const pairedTipSum = new Array(7).fill(0);
   const hourSum = new Array(7).fill(0);
   for (const t of tips) {
     const w = weekdayIndex(t.work_date);
     tipSum[w] += Number(t.amount);
-    hourSum[w] += hoursByDate.get(t.work_date) ?? 0;
     stats[w].daysCounted++;
+    const hrs = hoursByDate.get(t.work_date) ?? 0;
+    if (hrs > 0) {
+      pairedTipSum[w] += Number(t.amount);
+      hourSum[w] += hrs;
+    }
   }
   for (const s of stats) {
     if (s.daysCounted > 0) {
       s.avgTips = round2(tipSum[s.weekday] / s.daysCounted);
       s.tipsPerLaborHour =
         hourSum[s.weekday] > 0
-          ? round2(tipSum[s.weekday] / hourSum[s.weekday])
+          ? round2(pairedTipSum[s.weekday] / hourSum[s.weekday])
           : null;
     }
   }
@@ -185,8 +194,12 @@ export function employeeStats(
   for (const t of tips) {
     const workers = workersByDate.get(t.work_date);
     if (!workers || workers.size === 0) continue;
-    const per = Number(t.amount) / workers.size;
-    for (const id of workers) tipShare.set(id, (tipShare.get(id) ?? 0) + per);
+    // Cent-exact even split so lifetime shares never sum past tips collected.
+    const ids = [...workers];
+    const shares = splitProportional(Number(t.amount), ids.map(() => 1));
+    ids.forEach((id, i) =>
+      tipShare.set(id, (tipShare.get(id) ?? 0) + shares[i]),
+    );
   }
   return employees
     .map((e) => {

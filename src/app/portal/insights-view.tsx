@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   type Employee,
   type Shift,
@@ -8,6 +8,7 @@ import {
   fmtMoney,
   fmtHours,
   parseDateStr,
+  toDateStr,
 } from "@/lib/portal";
 import {
   employeeStats,
@@ -42,7 +43,11 @@ function fmtDateLong(dateStr: string): string {
 
 function Delta({ pct }: { pct: number | null }) {
   if (pct === null) return null;
-  const up = pct >= 0;
+  if (pct === 0) {
+    // Flat (or a sub-0.5% move rounded to 0) — neutral, never an up-arrow.
+    return <span className="text-[10px] font-semibold text-muted">— 0%</span>;
+  }
+  const up = pct > 0;
   return (
     <span
       className={`text-[10px] font-semibold ${up ? "text-[#5a7d4f]" : "text-[#a04a4a]"}`}
@@ -70,6 +75,9 @@ function ColumnChart({
   ariaLabel: string;
 }) {
   const [sel, setSel] = useState<number | null>(null);
+  // Data can be refetched under a mounted chart (token refresh, edits from
+  // another device); a remembered index past the new length must not crash.
+  const validSel = sel !== null && sel < groups.length ? sel : null;
   const max = Math.max(...groups.flatMap((g) => g.values), 0);
   const maxGroup = groups.reduce(
     (best, g, i) =>
@@ -88,7 +96,7 @@ function ColumnChart({
           <button
             key={g.label + i}
             type="button"
-            onClick={() => setSel(sel === i ? null : i)}
+            onClick={() => setSel(validSel === i ? null : i)}
             aria-label={detail(i)}
             className="group flex min-w-0 flex-1 flex-col items-center justify-end gap-0"
             style={{ height: H + 16 }}
@@ -106,7 +114,7 @@ function ColumnChart({
                   style={{
                     height: Math.max(v > 0 ? 3 : 0, (v / max) * H),
                     background: colors[j],
-                    opacity: sel === null || sel === i ? 1 : 0.35,
+                    opacity: validSel === null || validSel === i ? 1 : 0.35,
                   }}
                 />
               ))}
@@ -119,7 +127,7 @@ function ColumnChart({
           <span
             key={g.label + i}
             className={`min-w-0 flex-1 text-center text-[9px] ${
-              sel === i ? "font-bold text-charcoal" : "text-muted"
+              validSel === i ? "font-bold text-charcoal" : "text-muted"
             }`}
           >
             {g.label}
@@ -127,16 +135,29 @@ function ColumnChart({
         ))}
       </div>
       <p className="mt-2 min-h-4 text-center text-[11px] text-charcoal">
-        {sel !== null ? detail(sel) : ""}
+        {validSel !== null ? detail(validSel) : ""}
       </p>
     </div>
   );
 }
 
 export function InsightsView({ employees, shifts, tips }: Props) {
-  // Captured once per mount so "this month" can't flip mid-session; the
-  // React Compiler handles memoizing the derived values below.
-  const [now] = useState(() => new Date());
+  // Stable within a render, but re-anchored when the calendar day changes
+  // while the tab sits open (e.g. left open across midnight or month-end).
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const check = () => {
+      setNow((prev) =>
+        toDateStr(prev) === toDateStr(new Date()) ? prev : new Date(),
+      );
+    };
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
+  }, []);
   const thisMonth = monthTotals(shifts, tips, now.getFullYear(), now.getMonth());
   const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const lastMonth = monthTotals(shifts, tips, prev.getFullYear(), prev.getMonth());
@@ -147,7 +168,9 @@ export function InsightsView({ employees, shifts, tips }: Props) {
   const recs = records(tips);
 
   const hasAnyData = shifts.length > 0 || tips.length > 0;
-  const weekdaysWithData = weekdays.filter((w) => w.daysCounted > 0);
+  // Must match the chart's own render condition (max avgTips > 0), or the
+  // card header promises a chart that never appears.
+  const weekdayChartHasBars = weekdays.some((w) => w.avgTips > 0);
 
   if (!hasAnyData) {
     return (
@@ -204,7 +227,7 @@ export function InsightsView({ employees, shifts, tips }: Props) {
       </div>
 
       {/* Tips by weekday */}
-      {weekdaysWithData.length > 0 && (
+      {weekdayChartHasBars && (
         <Card>
           <SectionLabel>Average tips by day of week</SectionLabel>
           <p className="mb-3 mt-1 text-[10px] text-muted/80">
@@ -360,7 +383,7 @@ export function InsightsView({ employees, shifts, tips }: Props) {
       <p className="text-center text-[10px] leading-relaxed text-muted/70">
         All figures come straight from your logged shifts and tips.
         <br />
-        Tip shares use the same even per-day split as the wage check.
+        Tip shares split each day&apos;s tips evenly among who worked that day.
       </p>
     </div>
   );

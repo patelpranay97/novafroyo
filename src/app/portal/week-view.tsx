@@ -10,6 +10,7 @@ import {
   fmtDayShort,
   fmtHours,
   fmtMoney,
+  dailyHourTipShares,
   fmtWeekRange,
   planPayout,
   round2,
@@ -40,7 +41,9 @@ export function WeekView({
   notify,
 }: Props) {
   const [monday, setMonday] = useState(() => startOfWeek(new Date()));
-  const [splitMode, setSplitMode] = useState<"even" | "hours">("even");
+  const [splitMode, setSplitMode] = useState<"even" | "hours" | "daily">(
+    "even",
+  );
   const [splitWays, setSplitWays] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [wageTarget, setWageTarget] = useState<number>(() => {
@@ -108,14 +111,13 @@ export function WeekView({
       .sort((a, b) => (a.emp?.name ?? "").localeCompare(b.emp?.name ?? ""));
   }, [weekShifts, shifts, empById, weekStart]);
 
-  const weekTips = useMemo(
-    () =>
-      round2(
-        tips
-          .filter((t) => t.work_date >= weekStart && t.work_date <= weekEnd)
-          .reduce((sum, t) => sum + Number(t.amount), 0),
-      ),
+  const weekTipRows = useMemo(
+    () => tips.filter((t) => t.work_date >= weekStart && t.work_date <= weekEnd),
     [tips, weekStart, weekEnd],
+  );
+  const weekTips = useMemo(
+    () => round2(weekTipRows.reduce((sum, t) => sum + Number(t.amount), 0)),
+    [weekTipRows],
   );
 
   const totalPayroll = useMemo(() => sumPay(weekShifts), [weekShifts]);
@@ -140,6 +142,12 @@ export function WeekView({
   const hourShares = useMemo(
     () => splitProportional(weekTips, rows.map((r) => r.hours)),
     [weekTips, rows],
+  );
+
+  // Daily basis: each day's tips ÷ that day's hours, summed per person.
+  const daily = useMemo(
+    () => dailyHourTipShares(weekShifts, weekTipRows),
+    [weekShifts, weekTipRows],
   );
 
   // Each day's tips + how many worked, for the per-day breakdown.
@@ -352,20 +360,21 @@ export function WeekView({
 
       {/* Tip splitter */}
       <Card>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <SectionLabel>Tip splitter</SectionLabel>
           <div className="flex border border-charcoal/20">
             {(
               [
                 ["even", "Even"],
-                ["hours", "By hours"],
+                ["hours", "Wk hours"],
+                ["daily", "Daily"],
               ] as const
             ).map(([mode, label]) => (
               <button
                 key={mode}
                 type="button"
                 onClick={() => setSplitMode(mode)}
-                className={`px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] transition ${
+                className={`whitespace-nowrap px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] transition sm:px-3 sm:tracking-[0.2em] ${
                   splitMode === mode
                     ? "bg-charcoal text-cream"
                     : "text-muted hover:text-charcoal"
@@ -379,6 +388,13 @@ export function WeekView({
 
         <p className="mt-3 text-sm text-muted">
           {fmtMoney(weekTips)} in tips this week
+        </p>
+        <p className="mt-0.5 text-[10px] text-muted/70">
+          {splitMode === "even"
+            ? "Whole week's tips, equal cut per person."
+            : splitMode === "hours"
+              ? "Whole week's tips ÷ each person's weekly hours."
+              : "Each day's tips ÷ that day's hours, summed for the week."}
         </p>
 
         {weekTips <= 0 ? (
@@ -440,10 +456,21 @@ export function WeekView({
                     </span>
                   </span>
                   <span className="font-display">
-                    {fmtMoney(hourShares[i] ?? 0)}
+                    {fmtMoney(
+                      splitMode === "daily"
+                        ? (daily.shares.get(r.empId) ?? 0)
+                        : (hourShares[i] ?? 0),
+                    )}
                   </span>
                 </div>
               ))
+            )}
+            {splitMode === "daily" && daily.unallocated > 0 && (
+              <p className="mt-1 text-[10px] text-[#a04a4a]">
+                {fmtMoney(daily.unallocated)} came in on days with no shifts
+                logged, so it isn&apos;t split — add those shifts on the
+                Calendar tab.
+              </p>
             )}
           </div>
         )}

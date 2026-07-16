@@ -147,6 +147,43 @@ export function fmtHours(n: number): string {
   return `${Number(n.toFixed(2))}h`;
 }
 
+/**
+ * Daily-basis by-hours tip split: each day's tips are divided among that
+ * day's workers proportional to their hours (cent-exact), then summed per
+ * employee. Tips on days with no shifts can't be attributed and are
+ * returned as `unallocated`.
+ */
+export function dailyHourTipShares(
+  shifts: Shift[],
+  tips: TipDay[],
+): { shares: Map<string, number>; unallocated: number } {
+  const byDate = new Map<string, Shift[]>();
+  for (const s of shifts) {
+    const arr = byDate.get(s.work_date) ?? [];
+    arr.push(s);
+    byDate.set(s.work_date, arr);
+  }
+  const shares = new Map<string, number>();
+  let unallocatedCents = 0;
+  for (const t of tips) {
+    const amount = Number(t.amount);
+    if (amount <= 0) continue;
+    const day = byDate.get(t.work_date) ?? [];
+    if (day.length === 0) {
+      unallocatedCents += Math.round(amount * 100);
+      continue;
+    }
+    const alloc = splitProportional(amount, day.map((s) => Number(s.hours)));
+    day.forEach((s, i) => {
+      shares.set(
+        s.employee_id,
+        round2((shares.get(s.employee_id) ?? 0) + alloc[i]),
+      );
+    });
+  }
+  return { shares, unallocated: unallocatedCents / 100 };
+}
+
 // ---------- Weekly payout plan (tips-waterfall) ----------
 // Tips first bring everyone up to the target hourly ("guarantee"); whatever
 // remains is an end-of-week bonus split by hours. The owner only adds money

@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   type Employee,
+  type ScheduledShift,
   type Shift,
   type TipDay,
   fmtMoney,
+  fmtTime,
   parseDateStr,
 } from "@/lib/portal";
 import { Modal, SectionLabel, btnSolidCls, inputCls } from "./ui";
@@ -16,6 +18,8 @@ type Props = {
   date: string; // YYYY-MM-DD
   employees: Employee[];
   shifts: Shift[];
+  scheduled: ScheduledShift[];
+  scheduleReady: boolean;
   tip: TipDay | null;
   onChange: () => Promise<void>;
   notify: (msg: string) => void;
@@ -29,6 +33,8 @@ export function DayEditor({
   date,
   employees,
   shifts,
+  scheduled,
+  scheduleReady,
   tip,
   onChange,
   notify,
@@ -40,6 +46,9 @@ export function DayEditor({
   const [tipAmount, setTipAmount] = useState(
     tip ? String(Number(tip.amount)) : "",
   );
+  const [schedEmpId, setSchedEmpId] = useState("");
+  const [schedStart, setSchedStart] = useState("12:00");
+  const [schedEnd, setSchedEnd] = useState("20:00");
   const [busy, setBusy] = useState(false);
 
   const title = useMemo(() => {
@@ -126,6 +135,40 @@ export function DayEditor({
       await onChange();
       if (wasPaid) notify("Hours changed — shift reopened as unpaid");
     }
+  }
+
+  async function addScheduled(e: React.FormEvent) {
+    e.preventDefault();
+    const emp = empById.get(schedEmpId);
+    if (!emp || !schedStart || !schedEnd) {
+      notify("Pick a person and start/end times");
+      return;
+    }
+    if (schedEnd <= schedStart) {
+      notify("End time must be after start time");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.from("schedule").insert({
+      employee_id: emp.id,
+      work_date: date,
+      start_time: schedStart,
+      end_time: schedEnd,
+    });
+    if (error) notify(`Couldn't schedule: ${error.message}`);
+    else {
+      await onChange();
+      setSchedEmpId("");
+    }
+    setBusy(false);
+  }
+
+  async function removeScheduled(s: ScheduledShift) {
+    setBusy(true);
+    const { error } = await supabase.from("schedule").delete().eq("id", s.id);
+    if (error) notify(`Couldn't remove: ${error.message}`);
+    else await onChange();
+    setBusy(false);
   }
 
   async function saveTip() {
@@ -289,6 +332,113 @@ export function DayEditor({
                 Add your employees on the Team tab first.
               </p>
             )
+          )}
+        </div>
+
+        {/* Scheduled (planned) shifts */}
+        <div>
+          <SectionLabel>Scheduled</SectionLabel>
+          {!scheduleReady ? (
+            <p className="mt-2 text-xs text-muted">
+              Run <span className="font-semibold text-charcoal">
+                supabase/migration-scheduling.sql
+              </span>{" "}
+              in the Supabase SQL Editor to turn on scheduling.
+            </p>
+          ) : (
+            <>
+              {scheduled.length === 0 ? (
+                <p className="mt-2 text-sm text-muted">
+                  No one scheduled yet.
+                </p>
+              ) : (
+                <div className="mt-2 flex flex-col gap-2">
+                  {scheduled.map((s) => {
+                    const emp = empById.get(s.employee_id);
+                    return (
+                      <div
+                        key={s.id}
+                        className="flex items-center gap-2 border border-charcoal/15 bg-cream-soft p-2"
+                      >
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full border-2"
+                          style={{ borderColor: emp?.color ?? "#999" }}
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm">
+                          {emp?.name ?? "Unknown"}
+                        </span>
+                        <span className="shrink-0 text-xs text-muted">
+                          {fmtTime(s.start_time)}–{fmtTime(s.end_time)}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => removeScheduled(s)}
+                          aria-label={`Unschedule ${emp?.name ?? "employee"}`}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center border border-charcoal/20 text-muted transition hover:border-[#a04a4a] hover:text-[#a04a4a] disabled:opacity-40"
+                        >
+                          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3 w-3" aria-hidden="true">
+                            <path d="M3 3l10 10M13 3L3 13" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {(() => {
+                const onDay = new Set(scheduled.map((s) => s.employee_id));
+                const schedulable = employees.filter(
+                  (e) => e.active && !onDay.has(e.id),
+                );
+                if (schedulable.length === 0) return null;
+                return (
+                  <form
+                    onSubmit={addScheduled}
+                    className="mt-3 flex flex-col gap-2"
+                  >
+                    <select
+                      value={schedEmpId}
+                      onChange={(e) => setSchedEmpId(e.target.value)}
+                      aria-label="Employee to schedule"
+                      className={inputCls}
+                    >
+                      <option value="">Schedule someone…</option>
+                      {schedulable.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={schedStart}
+                        onChange={(e) => setSchedStart(e.target.value)}
+                        aria-label="Start time"
+                        className={`${inputCls} flex-1`}
+                      />
+                      <span className="text-xs text-muted">to</span>
+                      <input
+                        type="time"
+                        value={schedEnd}
+                        onChange={(e) => setSchedEnd(e.target.value)}
+                        aria-label="End time"
+                        className={`${inputCls} flex-1`}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={busy || !schedEmpId}
+                      className={btnSolidCls}
+                    >
+                      Add to schedule
+                    </button>
+                  </form>
+                );
+              })()}
+            </>
           )}
         </div>
 

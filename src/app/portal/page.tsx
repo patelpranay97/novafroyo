@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/lib/supabase";
-import type { Employee, Shift, TipDay } from "@/lib/portal";
+import type { Employee, ScheduledShift, Shift, TipDay } from "@/lib/portal";
 import { Login, SetupNotice } from "./login";
 import { Toast } from "./ui";
 import { WeekView } from "./week-view";
@@ -30,6 +30,8 @@ export default function PortalPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [tips, setTips] = useState<TipDay[]>([]);
+  const [schedule, setSchedule] = useState<ScheduledShift[]>([]);
+  const [scheduleReady, setScheduleReady] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -52,10 +54,11 @@ export default function PortalPage() {
 
   const refresh = useCallback(async () => {
     if (!supabase) return;
-    const [emp, shf, tps] = await Promise.all([
+    const [emp, shf, tps, sch] = await Promise.all([
       supabase.from("employees").select("*").order("name"),
       supabase.from("shifts").select("*").order("work_date"),
       supabase.from("tips").select("*").order("work_date"),
+      supabase.from("schedule").select("*").order("work_date"),
     ]);
     const err = emp.error ?? shf.error ?? tps.error;
     if (err) {
@@ -66,6 +69,10 @@ export default function PortalPage() {
     setEmployees((emp.data as Employee[]) ?? []);
     setShifts((shf.data as Shift[]) ?? []);
     setTips((tps.data as TipDay[]) ?? []);
+    // Scheduling is non-fatal: the table only exists after the one-time
+    // migration in supabase/migration-scheduling.sql has been run.
+    setSchedule(sch.error ? [] : ((sch.data as ScheduledShift[]) ?? []));
+    setScheduleReady(!sch.error);
     setLoadError(null);
     setLoaded(true);
   }, [supabase, notify]);
@@ -164,6 +171,8 @@ export default function PortalPage() {
                 employees={employees}
                 shifts={shifts}
                 tips={tips}
+                schedule={schedule}
+                scheduleReady={scheduleReady}
                 onChange={refresh}
                 notify={notify}
               />

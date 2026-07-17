@@ -8,6 +8,7 @@ create table public.employees (
   hourly_rate numeric(8,2) not null default 0 check (hourly_rate >= 0),
   color text not null default '#2d4f9e',
   active boolean not null default true,
+  phone text,
   created_at timestamptz not null default now()
 );
 
@@ -36,14 +37,30 @@ create table public.tips (
   updated_at timestamptz not null default now()
 );
 
+-- Scheduled (future) shifts: planning, separate from worked shifts.
+create table public.schedule (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  work_date date not null,
+  start_time time not null,
+  end_time time not null,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create index schedule_date_idx on public.schedule (work_date);
+
 -- Lock everything down: only a signed-in user (you) can touch any of it.
 alter table public.employees enable row level security;
 alter table public.shifts enable row level security;
 alter table public.tips enable row level security;
+alter table public.schedule enable row level security;
 
 create policy "authenticated full access" on public.employees
   for all to authenticated using (true) with check (true);
 create policy "authenticated full access" on public.shifts
   for all to authenticated using (true) with check (true);
 create policy "authenticated full access" on public.tips
+  for all to authenticated using (true) with check (true);
+create policy "authenticated full access" on public.schedule
   for all to authenticated using (true) with check (true);

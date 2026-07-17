@@ -47,3 +47,11 @@ Production (and Preview), then **redeploy**.
 
 Visit `novafroyo.com/portal`, sign in with the email + password from step 3.
 Add your employees in the Team tab and you're off.
+
+## Updates
+
+**Scheduling + reminder texts** (added July 2026): run
+[`supabase/migration-scheduling.sql`](supabase/migration-scheduling.sql) once
+in the SQL Editor. It adds the `schedule` table and a `phone` column on
+employees. Until it runs, the portal works as before — the Scheduled section
+just shows a reminder to run it.

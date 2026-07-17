@@ -7,6 +7,7 @@ import {
   type Employee,
   type Shift,
   fmtMoney,
+  normalizePhone,
   sumPay,
 } from "@/lib/portal";
 import { Card, Modal, SectionLabel, btnCls, btnSolidCls, inputCls } from "./ui";
@@ -102,6 +103,31 @@ export function TeamView({
     } else {
       await onChange();
       notify(`${emp.name}'s rate is now ${fmtMoney(r)}/hr for new shifts`);
+    }
+  }
+
+  async function updatePhone(emp: Employee, input: HTMLInputElement) {
+    const raw = input.value.trim();
+    const current = emp.phone ?? "";
+    if (raw === current) return;
+    const normalized = raw === "" ? null : normalizePhone(raw);
+    if (raw !== "" && normalized === null) {
+      notify("Phone needs at least 10 digits");
+      input.value = current;
+      return;
+    }
+    const { error } = await supabase
+      .from("employees")
+      .update({ phone: normalized })
+      .eq("id", emp.id);
+    if (error) {
+      // Most likely the scheduling migration (which adds the phone column)
+      // hasn't been run yet.
+      notify(`Couldn't save phone: ${error.message}`);
+      input.value = current;
+    } else {
+      await onChange();
+      notify(normalized ? `${emp.name}'s number saved` : "Phone removed");
     }
   }
 
@@ -250,7 +276,15 @@ export function TeamView({
                     /hr
                   </span>
                 </div>
-                <div className="mt-3 flex items-center justify-end gap-2">
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="tel"
+                    placeholder="Phone (for reminder texts)"
+                    defaultValue={emp.phone ?? ""}
+                    onBlur={(e) => updatePhone(emp, e.target)}
+                    aria-label={`Phone for ${emp.name}`}
+                    className="min-w-0 flex-1 border border-charcoal/25 bg-cream px-2 py-1 text-sm outline-none placeholder:text-muted/50 focus:border-charcoal"
+                  />
                   <button
                     type="button"
                     onClick={() => toggleActive(emp)}

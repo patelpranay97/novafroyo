@@ -4,11 +4,18 @@ import { useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   type Employee,
+  type ScheduledShift,
   type Shift,
   type TipDay,
+  addDays,
+  fmtDayShort,
   fmtMonthTitle,
+  fmtTime,
+  fmtTimeChip,
+  normalizePhone,
   toDateStr,
 } from "@/lib/portal";
+import { Card, SectionLabel } from "./ui";
 import { DayEditor } from "./day-editor";
 
 type Props = {
@@ -16,6 +23,8 @@ type Props = {
   employees: Employee[];
   shifts: Shift[];
   tips: TipDay[];
+  schedule: ScheduledShift[];
+  scheduleReady: boolean;
   onChange: () => Promise<void>;
   notify: (msg: string) => void;
 };
@@ -27,6 +36,8 @@ export function CalendarView({
   employees,
   shifts,
   tips,
+  schedule,
+  scheduleReady,
   onChange,
   notify,
 }: Props) {
@@ -55,6 +66,26 @@ export function CalendarView({
   const tipsByDate = useMemo(
     () => new Map(tips.map((t) => [t.work_date, t])),
     [tips],
+  );
+
+  const scheduleByDate = useMemo(() => {
+    const map = new Map<string, ScheduledShift[]>();
+    for (const s of schedule) {
+      const list = map.get(s.work_date) ?? [];
+      list.push(s);
+      map.set(s.work_date, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => a.start_time.localeCompare(b.start_time));
+    }
+    return map;
+  }, [schedule]);
+
+  // Tomorrow's scheduled crew, for the reminder texts.
+  const tomorrowStr = toDateStr(addDays(today, 1));
+  const tomorrowCrew = useMemo(
+    () => scheduleByDate.get(tomorrowStr) ?? [],
+    [scheduleByDate, tomorrowStr],
   );
 
   // Chip label per employee: first name, plus a last initial only when another
@@ -169,27 +200,103 @@ export function CalendarView({
                   </span>
                 )}
               </span>
-              {(shiftsByDate.get(dateStr) ?? []).slice(0, 3).map((s) => {
-                const emp = empById.get(s.employee_id);
+              {(() => {
+                const worked = shiftsByDate.get(dateStr) ?? [];
+                const planned = scheduleByDate.get(dateStr) ?? [];
+                const chips = [
+                  ...worked.map((s) => ({ kind: "worked" as const, s })),
+                  ...planned.map((s) => ({ kind: "planned" as const, s })),
+                ];
                 return (
-                  <span
-                    key={s.id}
-                    className="truncate rounded-sm px-1 py-px text-[9px] leading-tight text-cream"
-                    style={{ background: emp?.color ?? "#999" }}
-                  >
-                    {labelById.get(s.employee_id) ?? "?"} {Number(s.hours)}h
-                  </span>
+                  <>
+                    {chips.slice(0, 3).map((c) =>
+                      c.kind === "worked" ? (
+                        <span
+                          key={c.s.id}
+                          className="truncate rounded-sm px-1 py-px text-[9px] leading-tight text-cream"
+                          style={{
+                            background:
+                              empById.get(c.s.employee_id)?.color ?? "#999",
+                          }}
+                        >
+                          {labelById.get(c.s.employee_id) ?? "?"}{" "}
+                          {Number(c.s.hours)}h
+                        </span>
+                      ) : (
+                        <span
+                          key={c.s.id}
+                          className="truncate rounded-sm border px-1 py-px text-[9px] leading-tight text-charcoal-soft"
+                          style={{
+                            borderColor:
+                              empById.get(c.s.employee_id)?.color ?? "#999",
+                          }}
+                        >
+                          {labelById.get(c.s.employee_id) ?? "?"}{" "}
+                          {fmtTimeChip(c.s.start_time, c.s.end_time)}
+                        </span>
+                      ),
+                    )}
+                    {chips.length > 3 && (
+                      <span className="px-1 text-[9px] text-muted">
+                        +{chips.length - 3} more
+                      </span>
+                    )}
+                  </>
                 );
-              })}
-              {(shiftsByDate.get(dateStr)?.length ?? 0) > 3 && (
-                <span className="px-1 text-[9px] text-muted">
-                  +{shiftsByDate.get(dateStr)!.length - 3} more
-                </span>
-              )}
+              })()}
             </button>
           ),
         )}
       </div>
+
+      {/* Shift reminders — prefilled texts for tomorrow's scheduled crew */}
+      {tomorrowCrew.length > 0 && (
+        <Card>
+          <SectionLabel>Shift reminders</SectionLabel>
+          <p className="mt-1 text-[10px] text-muted/80">
+            Tomorrow ({fmtDayShort(tomorrowStr)}) — tap to open a prefilled
+            text from your phone.
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            {tomorrowCrew.map((s) => {
+              const emp = empById.get(s.employee_id);
+              const phone = emp?.phone ? normalizePhone(emp.phone) : null;
+              const timeRange = `${fmtTime(s.start_time)}–${fmtTime(s.end_time)}`;
+              const body = `Hi ${emp?.name?.split(" ")[0] ?? "there"}! Reminder: you're on at Nova tomorrow (${fmtDayShort(s.work_date)}), ${timeRange}. See you then!`;
+              return (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between gap-2 text-sm"
+                >
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: emp?.color ?? "#999" }}
+                      aria-hidden="true"
+                    />
+                    <span className="truncate">{emp?.name ?? "Unknown"}</span>
+                    <span className="shrink-0 text-xs text-muted">
+                      {timeRange}
+                    </span>
+                  </span>
+                  {phone ? (
+                    <a
+                      href={`sms:${phone}?&body=${encodeURIComponent(body)}`}
+                      className="shrink-0 border border-charcoal bg-charcoal px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-cream transition hover:bg-charcoal-soft"
+                    >
+                      Text
+                    </a>
+                  ) : (
+                    <span className="shrink-0 text-[10px] uppercase tracking-[0.15em] text-muted">
+                      Add phone on Team tab
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {selectedDate && (
         <DayEditor
@@ -197,6 +304,8 @@ export function CalendarView({
           date={selectedDate}
           employees={employees}
           shifts={shiftsByDate.get(selectedDate) ?? []}
+          scheduled={scheduleByDate.get(selectedDate) ?? []}
+          scheduleReady={scheduleReady}
           tip={tipsByDate.get(selectedDate) ?? null}
           onChange={onChange}
           notify={notify}

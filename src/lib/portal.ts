@@ -9,6 +9,17 @@ export type Employee = {
   hourly_rate: number;
   color: string;
   active: boolean;
+  phone?: string | null;
+  created_at: string;
+};
+
+export type ScheduledShift = {
+  id: string;
+  employee_id: string;
+  work_date: string; // YYYY-MM-DD
+  start_time: string; // HH:MM or HH:MM:SS
+  end_time: string;
+  note: string | null;
   created_at: string;
 };
 
@@ -145,6 +156,31 @@ export function fmtMoney(n: number): string {
 /** "5" -> "5h", "5.5" -> "5.5h" */
 export function fmtHours(n: number): string {
   return `${Number(n.toFixed(2))}h`;
+}
+
+/** "14:30:00" or "14:30" -> "2:30 PM"; "09:00" -> "9 AM" */
+export function fmtTime(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return m ? `${h12}:${String(m).padStart(2, "0")} ${ampm}` : `${h12} ${ampm}`;
+}
+
+/** Compact chip form: "12–8" / "11:30–7" (minutes only when nonzero). */
+export function fmtTimeChip(start: string, end: string): string {
+  const part = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return m ? `${h12}:${String(m).padStart(2, "0")}` : `${h12}`;
+  };
+  return `${part(start)}–${part(end)}`;
+}
+
+/** Keep digits and a leading + for use in sms:/tel: links; null if too short. */
+export function normalizePhone(raw: string): string | null {
+  const cleaned = raw.replace(/[^+\d]/g, "");
+  const digits = cleaned.replace(/\D/g, "");
+  return digits.length >= 10 ? cleaned : null;
 }
 
 /**

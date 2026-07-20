@@ -8,6 +8,7 @@ import {
   type Settings,
   type Shift,
   dayProfit,
+  fmtDayShort,
   fmtMoney,
   parseDateStr,
   parseSquareReport,
@@ -16,6 +17,10 @@ import {
   toDateStr,
 } from "@/lib/portal";
 import { Card, Modal, SectionLabel, btnSolidCls, inputCls } from "./ui";
+import { ColumnChart } from "./charts";
+
+// Chart hue — validated (dataviz six checks) against the cream surface.
+const HUE = "#2d4f9e";
 
 type Props = {
   supabase: SupabaseClient;
@@ -159,8 +164,42 @@ export function ProfitView({
       labor: sum((r) => r.p.labor),
       fees: sum((r) => Number(r.sales.fees)),
       landlord: sum((r) => r.p.landlordShare),
+      cups: monthRows.reduce(
+        (a, r) =>
+          a +
+          r.sales.mini_cups +
+          r.sales.regular_cups +
+          r.sales.super_cups,
+        0,
+      ),
+      mini: monthRows.reduce((a, r) => a + r.sales.mini_cups, 0),
+      regular: monthRows.reduce((a, r) => a + r.sales.regular_cups, 0),
+      super: monthRows.reduce((a, r) => a + r.sales.super_cups, 0),
+      toppings: monthRows.reduce((a, r) => a + r.sales.toppings, 0),
     };
   }, [monthRows]);
+
+  // Sorted by date for the profit-by-day chart.
+  const chartRows = useMemo(
+    () =>
+      [...monthRows].sort((a, b) =>
+        a.sales.work_date.localeCompare(b.sales.work_date),
+      ),
+    [monthRows],
+  );
+
+  // Where each $100 of sales goes (cups / wages / fees / profit).
+  const per100 = useMemo(() => {
+    if (totals.net <= 0) return null;
+    const share = (v: number) => round2((v / totals.net) * 100);
+    return {
+      cogs: share(totals.cogs),
+      labor: share(totals.labor),
+      fees: share(totals.fees),
+      profit: share(totals.profit),
+      landlord: share(totals.landlord),
+    };
+  }, [totals]);
 
   const cells = useMemo(() => {
     const first = new Date(year, month, 1);
@@ -443,6 +482,121 @@ export function ProfitView({
           ),
         )}
       </div>
+
+      {/* Charts — only once there's data this month */}
+      {monthRows.length > 0 && (
+        <>
+          {totals.cups > 0 && (
+            <p className="text-center text-[11px] text-muted">
+              ≈{" "}
+              <span className="font-semibold text-charcoal">
+                {fmtMoney(round2(totals.net / totals.cups))}
+              </span>{" "}
+              per cup ·{" "}
+              <span className="font-semibold text-charcoal">
+                {Math.round(totals.cups / monthRows.length)}
+              </span>{" "}
+              cups/day avg
+            </p>
+          )}
+
+          <Card>
+            <SectionLabel>Profit by day</SectionLabel>
+            <p className="mb-3 mt-1 text-[10px] text-muted/80">
+              Tap a bar for margin and cup detail.
+            </p>
+            <ColumnChart
+              ariaLabel="Netish profit for each day with sales this month"
+              groups={chartRows.map((r) => ({
+                label: String(Number(r.sales.work_date.slice(8))),
+                values: [Math.max(0, r.p.profit)],
+              }))}
+              colors={[HUE]}
+              detail={(i) => {
+                const r = chartRows[i];
+                if (!r) return "";
+                const net = Number(r.sales.net_sales);
+                const margin =
+                  net > 0 ? Math.round((r.p.profit / net) * 100) : 0;
+                const cups =
+                  r.sales.mini_cups + r.sales.regular_cups + r.sales.super_cups;
+                return `${fmtDayShort(r.sales.work_date)} · ${fmtMoney(r.p.profit)} profit · ${margin}% of sales · ${cups} cups`;
+              }}
+            />
+          </Card>
+
+          {per100 && (
+            <Card>
+              <SectionLabel>Where each $100 of sales goes</SectionLabel>
+              <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+                {(
+                  [
+                    ["Cups", per100.cogs],
+                    ["Wages", per100.labor],
+                    ["Fees", per100.fees],
+                    ["Profit", per100.profit],
+                  ] as const
+                ).map(([label, v]) => (
+                  <div key={label}>
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">
+                      {label}
+                    </p>
+                    <p
+                      className={`mt-0.5 font-display text-lg ${
+                        label === "Profit"
+                          ? v < 0
+                            ? "text-[#a04a4a]"
+                            : "text-[#5a7d4f]"
+                          : ""
+                      }`}
+                    >
+                      ${Number(v.toFixed(0))}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-center text-[10px] text-muted/70">
+                Landlord share is separate: ~${Number(per100.landlord.toFixed(0))}{" "}
+                of each $100.
+              </p>
+            </Card>
+          )}
+
+          {totals.cups > 0 && (
+            <Card>
+              <SectionLabel>What you sold</SectionLabel>
+              <p className="mb-3 mt-1 text-[10px] text-muted/80">
+                Cup counts for the month — tap for share.
+              </p>
+              <ColumnChart
+                ariaLabel="Units sold this month by item"
+                fmtValue={(v) => String(Math.round(v))}
+                groups={[
+                  { label: "Mini", values: [totals.mini] },
+                  { label: "Regular", values: [totals.regular] },
+                  { label: "Super", values: [totals.super] },
+                  { label: "Xtra top.", values: [totals.toppings] },
+                ]}
+                colors={[HUE]}
+                detail={(i) => {
+                  const items = [
+                    ["Mini", totals.mini],
+                    ["Regular", totals.regular],
+                    ["Super", totals.super],
+                    ["Extra toppings", totals.toppings],
+                  ] as const;
+                  const [name, v] = items[i] ?? ["", 0];
+                  const pct =
+                    totals.cups > 0 && i < 3
+                      ? ` · ${Math.round((v / totals.cups) * 100)}% of cups`
+                      : "";
+                  return `${name}: ${v} sold${pct}`;
+                }}
+              />
+            </Card>
+          )}
+        </>
+      )}
 
       {/* Cost settings */}
       <details className="group">

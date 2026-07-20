@@ -69,3 +69,11 @@ create unique index if not exists schedule_emp_day_idx
 then tap "Set owner" on the owner's card in the Team tab. Owners are excluded
 from the wage guarantee — tips top up staff first, and the leftover is the
 owner's to distribute.
+
+**Daily sales + Profit tab** (added July 2026): run
+[`supabase/migration-daily-sales.sql`](supabase/migration-daily-sales.sql)
+once. After close, open the day on the Calendar tab and copy Net Sales, Tax,
+Fees, and the four item counts from the Square email into the Sales section;
+the Profit tab shows netish profit per day (sales − cup costs − wages − fees),
+the landlord share separately, and the month's sales tax to set aside. Unit
+costs are editable under "Cost settings" on the Profit tab.

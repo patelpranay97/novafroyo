@@ -42,6 +42,73 @@ export type TipDay = {
   updated_at: string;
 };
 
+export type DailySales = {
+  work_date: string; // YYYY-MM-DD
+  net_sales: number;
+  tax: number;
+  fees: number;
+  mini_cups: number;
+  regular_cups: number;
+  super_cups: number;
+  toppings: number;
+  updated_at: string;
+};
+
+export type Settings = {
+  id: number;
+  mini_cost: number;
+  regular_cost: number;
+  super_cost: number;
+  topping_cost: number;
+  landlord_pct: number;
+  updated_at: string;
+};
+
+export const DEFAULT_SETTINGS: Settings = {
+  id: 1,
+  mini_cost: 1.18,
+  regular_cost: 1.89,
+  super_cost: 2.61,
+  topping_cost: 0.5,
+  landlord_pct: 10,
+  updated_at: "",
+};
+
+export type DayProfit = {
+  cogs: number;
+  labor: number;
+  profit: number; // net_sales - cogs - labor - fees (before landlord share)
+  landlordShare: number; // shown separately, never subtracted from profit
+  afterLandlord: number;
+};
+
+/** Netish profit for one day. Labor = that day's wages (hours × rate). */
+export function dayProfit(
+  sales: DailySales,
+  settings: Settings,
+  labor: number,
+): DayProfit {
+  const cogs = round2(
+    Number(sales.mini_cups) * Number(settings.mini_cost) +
+      Number(sales.regular_cups) * Number(settings.regular_cost) +
+      Number(sales.super_cups) * Number(settings.super_cost) +
+      Number(sales.toppings) * Number(settings.topping_cost),
+  );
+  const profit = round2(
+    Number(sales.net_sales) - cogs - labor - Number(sales.fees),
+  );
+  const landlordShare = round2(
+    (Number(sales.net_sales) * Number(settings.landlord_pct)) / 100,
+  );
+  return {
+    cogs,
+    labor: round2(labor),
+    profit,
+    landlordShare,
+    afterLandlord: round2(profit - landlordShare),
+  };
+}
+
 export const EMPLOYEE_COLORS = [
   "#2d4f9e", // aegean
   "#8a5a2b", // caramel

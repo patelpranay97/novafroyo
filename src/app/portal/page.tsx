@@ -4,19 +4,29 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/lib/supabase";
-import type { Employee, ScheduledShift, Shift, TipDay } from "@/lib/portal";
+import {
+  DEFAULT_SETTINGS,
+  type DailySales,
+  type Employee,
+  type ScheduledShift,
+  type Settings,
+  type Shift,
+  type TipDay,
+} from "@/lib/portal";
 import { Login, SetupNotice } from "./login";
 import { Toast } from "./ui";
 import { WeekView } from "./week-view";
 import { CalendarView } from "./calendar-view";
 import { TeamView } from "./team-view";
 import { InsightsView } from "./insights-view";
+import { ProfitView } from "./profit-view";
 
-type Tab = "week" | "calendar" | "team" | "insights";
+type Tab = "week" | "calendar" | "profit" | "team" | "insights";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "week", label: "This Week" },
+  { id: "week", label: "Week" },
   { id: "calendar", label: "Calendar" },
+  { id: "profit", label: "Profit" },
   { id: "team", label: "Team" },
   { id: "insights", label: "Insights" },
 ];
@@ -32,6 +42,9 @@ export default function PortalPage() {
   const [tips, setTips] = useState<TipDay[]>([]);
   const [schedule, setSchedule] = useState<ScheduledShift[]>([]);
   const [scheduleReady, setScheduleReady] = useState(true);
+  const [sales, setSales] = useState<DailySales[]>([]);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [salesReady, setSalesReady] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -54,11 +67,13 @@ export default function PortalPage() {
 
   const refresh = useCallback(async () => {
     if (!supabase) return;
-    const [emp, shf, tps, sch] = await Promise.all([
+    const [emp, shf, tps, sch, sls, stg] = await Promise.all([
       supabase.from("employees").select("*").order("name"),
       supabase.from("shifts").select("*").order("work_date"),
       supabase.from("tips").select("*").order("work_date"),
       supabase.from("schedule").select("*").order("work_date"),
+      supabase.from("daily_sales").select("*").order("work_date"),
+      supabase.from("settings").select("*").order("id"),
     ]);
     const err = emp.error ?? shf.error ?? tps.error;
     if (err) {
@@ -73,6 +88,12 @@ export default function PortalPage() {
     // migration in supabase/migration-scheduling.sql has been run.
     setSchedule(sch.error ? [] : ((sch.data as ScheduledShift[]) ?? []));
     setScheduleReady(!sch.error);
+    // Daily sales/settings are non-fatal the same way (migration-daily-sales.sql).
+    setSales(sls.error ? [] : ((sls.data as DailySales[]) ?? []));
+    setSettings(
+      stg.error ? DEFAULT_SETTINGS : ((stg.data?.[0] as Settings) ?? DEFAULT_SETTINGS),
+    );
+    setSalesReady(!sls.error && !stg.error);
     setLoadError(null);
     setLoaded(true);
   }, [supabase, notify]);
@@ -173,6 +194,8 @@ export default function PortalPage() {
                 tips={tips}
                 schedule={schedule}
                 scheduleReady={scheduleReady}
+                sales={sales}
+                salesReady={salesReady}
                 onChange={refresh}
                 notify={notify}
               />
@@ -182,6 +205,17 @@ export default function PortalPage() {
                 supabase={supabase}
                 employees={employees}
                 shifts={shifts}
+                onChange={refresh}
+                notify={notify}
+              />
+            )}
+            {tab === "profit" && (
+              <ProfitView
+                supabase={supabase}
+                shifts={shifts}
+                sales={sales}
+                settings={settings}
+                salesReady={salesReady}
                 onChange={refresh}
                 notify={notify}
               />

@@ -137,6 +137,24 @@ export function TeamView({
     }
   }
 
+  async function toggleOwner(emp: Employee) {
+    const { error } = await supabase
+      .from("employees")
+      .update({ is_owner: !emp.is_owner })
+      .eq("id", emp.id);
+    if (error) {
+      // Likely the owner-flag migration hasn't been run yet.
+      notify(`Couldn't update: ${error.message}`);
+    } else {
+      await onChange();
+      notify(
+        emp.is_owner
+          ? `${emp.name} is staff again`
+          : `${emp.name} marked as owner — excluded from the wage guarantee`,
+      );
+    }
+  }
+
   async function toggleActive(emp: Employee) {
     const { error } = await supabase
       .from("employees")
@@ -246,10 +264,16 @@ export function TeamView({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-display text-base tracking-[0.06em]">
                       {emp.name}
-                      {Number(emp.hourly_rate) === 0 && (
+                      {emp.is_owner ? (
                         <span className="ml-2 text-[9px] font-sans font-semibold uppercase tracking-[0.2em] text-[#6d5a8a]">
-                          Tip-only
+                          Owner
                         </span>
+                      ) : (
+                        Number(emp.hourly_rate) === 0 && (
+                          <span className="ml-2 text-[9px] font-sans font-semibold uppercase tracking-[0.2em] text-[#6d5a8a]">
+                            Tip-only
+                          </span>
+                        )
                       )}
                       {!emp.active && (
                         <span className="ml-2 text-[9px] font-sans font-semibold uppercase tracking-[0.2em] text-muted">
@@ -291,6 +315,17 @@ export function TeamView({
                     aria-label={`Phone for ${emp.name}`}
                     className="min-w-0 flex-1 border border-charcoal/25 bg-cream px-2 py-1 text-sm outline-none placeholder:text-muted/50 focus:border-charcoal"
                   />
+                  <button
+                    type="button"
+                    onClick={() => toggleOwner(emp)}
+                    className={
+                      emp.is_owner
+                        ? "border border-[#6d5a8a] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6d5a8a] transition hover:opacity-70"
+                        : "border border-charcoal/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted transition hover:border-charcoal hover:text-charcoal"
+                    }
+                  >
+                    {emp.is_owner ? "Owner ✓" : "Set owner"}
+                  </button>
                   <button
                     type="button"
                     onClick={() => toggleActive(emp)}

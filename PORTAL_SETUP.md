@@ -63,3 +63,9 @@ add the duplicate guard:
 create unique index if not exists schedule_emp_day_idx
   on public.schedule (employee_id, work_date);
 ```
+
+**Owner flag** (added July 2026): run
+[`supabase/migration-owner-flag.sql`](supabase/migration-owner-flag.sql) once,
+then tap "Set owner" on the owner's card in the Team tab. Owners are excluded
+from the wage guarantee — tips top up staff first, and the leftover is the
+owner's to distribute.

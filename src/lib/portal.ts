@@ -10,6 +10,7 @@ export type Employee = {
   color: string;
   active: boolean;
   phone?: string | null;
+  is_owner?: boolean;
   created_at: string;
 };
 
@@ -226,27 +227,35 @@ export function dailyHourTipShares(
 }
 
 // ---------- Weekly payout plan (tips-waterfall) ----------
-// Tips first bring everyone up to the target hourly ("guarantee"); whatever
-// remains is an end-of-week bonus split by hours. The owner only adds money
-// when the pool can't fund the guarantee.
+// Tips first bring STAFF (non-owners) up to the target hourly ("guarantee").
+// Owners are excluded from the guarantee: whatever is left over after staff
+// are covered is the owner's to distribute at their discretion (to
+// themselves and/or as bonuses) — the plan reports the leftover but does
+// not allocate it. The business only adds money when the pool can't fund
+// the staff guarantee.
 
-export type PayoutPerson = { id: string; hours: number; wages: number };
+export type PayoutPerson = {
+  id: string;
+  hours: number;
+  wages: number;
+  isOwner?: boolean;
+};
 
 export type PayoutPlan = {
   perPerson: {
     id: string;
-    guarantee: number; // tips used to reach the target
-    bonus: number; // share of leftover tips (by hours)
-    fromTips: number; // guarantee + bonus
-    ownerAdds: number; // top-up from the owner when tips fall short
+    isOwner: boolean;
+    guarantee: number; // tips used to reach the target (0 for owners)
+    fromTips: number; // == guarantee
+    ownerAdds: number; // top-up from the business when tips fall short
     total: number; // wages + fromTips + ownerAdds
-    effective: number | null; // total / hours
+    effective: number | null; // total / hours (null for owners)
   }[];
-  totalNeed: number; // sum of gaps to target
+  totalNeed: number; // sum of staff gaps to target
   tipsToGuarantee: number;
-  bonusPool: number;
+  leftover: number; // pool remaining after staff guarantees — owner decides
   ownerAdds: number;
-  covered: boolean; // pool fully funds the guarantee
+  covered: boolean; // pool fully funds the staff guarantee
 };
 
 export function planPayout(
@@ -255,43 +264,37 @@ export function planPayout(
   target: number,
 ): PayoutPlan {
   const needs = people.map((p) =>
-    Math.max(0, round2(target * p.hours - p.wages)),
+    p.isOwner ? 0 : Math.max(0, round2(target * p.hours - p.wages)),
   );
   const totalNeed = round2(needs.reduce((a, b) => a + b, 0));
   const poolCents = Math.round(pool * 100);
   const needCents = Math.round(totalNeed * 100);
   const covered = needCents <= poolCents;
-  let guarantees: number[];
-  let bonuses: number[];
-  let bonusPool = 0;
-  if (covered) {
-    guarantees = needs;
-    bonusPool = round2((poolCents - needCents) / 100);
-    bonuses = splitProportional(bonusPool, people.map((p) => p.hours));
-  } else {
-    // Pool can't cover everyone: distribute it proportional to each gap.
-    guarantees = splitProportional(pool, needs);
-    bonuses = people.map(() => 0);
-  }
+  const guarantees = covered
+    ? needs
+    : // Pool can't cover staff: distribute it proportional to each gap.
+      splitProportional(pool, needs);
+  const leftover = covered ? round2((poolCents - needCents) / 100) : 0;
   const perPerson = people.map((p, i) => {
-    const fromTips = round2(guarantees[i] + bonuses[i]);
+    const fromTips = round2(guarantees[i]);
     const ownerAdds = round2(Math.max(0, needs[i] - guarantees[i]));
     const total = round2(p.wages + fromTips + ownerAdds);
     return {
       id: p.id,
+      isOwner: !!p.isOwner,
       guarantee: guarantees[i],
-      bonus: bonuses[i],
       fromTips,
       ownerAdds,
       total,
-      effective: p.hours > 0 ? round2(total / p.hours) : null,
+      effective:
+        !p.isOwner && p.hours > 0 ? round2(total / p.hours) : null,
     };
   });
   return {
     perPerson,
     totalNeed,
     tipsToGuarantee: round2(Math.min(totalNeed, pool)),
-    bonusPool,
+    leftover,
     ownerAdds: round2(perPerson.reduce((a, p) => a + p.ownerAdds, 0)),
     covered,
   };

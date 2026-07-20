@@ -171,12 +171,30 @@ export function WeekView({
   const payout = useMemo(
     () =>
       planPayout(
-        rows.map((r) => ({ id: r.empId, hours: r.hours, wages: r.owed })),
+        rows.map((r) => ({
+          id: r.empId,
+          hours: r.hours,
+          wages: r.owed,
+          isOwner: r.emp?.is_owner ?? false,
+        })),
         weekTips,
         wageTarget,
       ),
     [rows, weekTips, wageTarget],
   );
+
+  // A by-hours starting point for distributing the leftover (owner's call).
+  const leftoverSuggestion = useMemo(() => {
+    if (payout.leftover <= 0) return [];
+    const shares = splitProportional(
+      payout.leftover,
+      rows.map((r) => r.hours),
+    );
+    return rows.map((r, i) => ({
+      name: (r.emp?.name ?? "?").split(" ")[0],
+      share: shares[i] ?? 0,
+    }));
+  }, [payout.leftover, rows]);
 
   async function togglePaid(row: (typeof rows)[number]) {
     setBusyId(row.empId);
@@ -204,13 +222,16 @@ export function WeekView({
       `NOVA — Week of ${fmtWeekRange(monday)} (@ ${fmtMoney(wageTarget)}/hr)`,
       ...payout.perPerson.map((p, i) => {
         const r = rows[i];
+        if (p.isOwner) {
+          return `${r.emp?.name ?? "?"} (owner): from the leftover — ${fmtHours(r.hours)}`;
+        }
         const extra =
           p.ownerAdds > 0 ? ` + ${fmtMoney(p.ownerAdds)} from you` : "";
         return `${r.emp?.name ?? "?"}: PAY ${fmtMoney(p.total)} (${fmtMoney(r.owed)} wages + ${fmtMoney(p.fromTips)} tips${extra}) — ${fmtHours(r.hours)} — ${r.allPaid ? "PAID" : "UNPAID"}`;
       }),
       `Wages ${fmtMoney(totalPayroll)} · Tips ${fmtMoney(weekTips)}`,
       payout.covered
-        ? `Tips cover everyone · bonus pool ${fmtMoney(payout.bonusPool)}`
+        ? `Staff covered · ${fmtMoney(payout.leftover)} left over — owner decides`
         : `You add ${fmtMoney(payout.ownerAdds)} to reach ${fmtMoney(wageTarget)}/hr`,
     ];
     try {
@@ -315,22 +336,32 @@ export function WeekView({
             </label>
           </div>
           <p className="mt-1 text-[10px] leading-relaxed text-muted/80">
-            The big number is what each person takes home this week — wages +
-            tips, with tips first guaranteeing {fmtMoney(wageTarget)}/hr and
-            the rest split by hours as a bonus.
+            The big number is what each staff member takes home — wages +
+            tips, with tips first guaranteeing {fmtMoney(wageTarget)}/hr.
+            What&apos;s left after that is the owner&apos;s to distribute.
           </p>
 
           {payout.covered ? (
-            <p className="mt-2 text-sm font-semibold text-[#5a7d4f]">
-              ✓ Tips cover everyone to {fmtMoney(wageTarget)}/hr
-              {payout.bonusPool > 0 && (
-                <> · {fmtMoney(payout.bonusPool)} bonus</>
+            <>
+              <p className="mt-2 text-sm font-semibold text-[#5a7d4f]">
+                ✓ Staff covered to {fmtMoney(wageTarget)}/hr
+                {payout.leftover > 0 && (
+                  <> · {fmtMoney(payout.leftover)} left over — owner decides</>
+                )}
+              </p>
+              {leftoverSuggestion.length > 0 && (
+                <p className="mt-1 text-[10px] leading-relaxed text-muted/80">
+                  By-hours starting point:{" "}
+                  {leftoverSuggestion
+                    .map((s) => `${s.name} ${fmtMoney(s.share)}`)
+                    .join(" · ")}
+                </p>
               )}
-            </p>
+            </>
           ) : (
             <p className="mt-2 text-sm font-semibold text-[#a04a4a]">
               Tips cover {fmtMoney(payout.tipsToGuarantee)} of{" "}
-              {fmtMoney(payout.totalNeed)} needed — you add{" "}
+              {fmtMoney(payout.totalNeed)} staff need — you add{" "}
               {fmtMoney(payout.ownerAdds)}
             </p>
           )}
@@ -355,25 +386,46 @@ export function WeekView({
                       <span className="truncate font-display text-base tracking-[0.06em]">
                         {r.emp?.name ?? "Unknown"}
                       </span>
+                      {p?.isOwner && (
+                        <span className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.2em] text-[#6d5a8a]">
+                          Owner
+                        </span>
+                      )}
                     </span>
                     <span className="shrink-0 font-display text-xl">
-                      {fmtMoney(p?.total ?? r.owed)}
+                      {p?.isOwner
+                        ? r.owed > 0
+                          ? fmtMoney(r.owed)
+                          : "—"
+                        : fmtMoney(p?.total ?? r.owed)}
                     </span>
                   </div>
                   <p className="ml-4 mt-0.5 text-xs text-muted">
-                    {fmtMoney(r.owed)} wages + {fmtMoney(p?.fromTips ?? 0)}{" "}
-                    tips
-                    {p && p.ownerAdds > 0 && (
+                    {p?.isOwner ? (
                       <>
-                        {" + "}
-                        <span className="font-semibold text-[#a04a4a]">
-                          {fmtMoney(p.ownerAdds)} from you
-                        </span>
+                        Takes from what&apos;s left, at her discretion ·{" "}
+                        {fmtHours(r.hours)}
+                        {r.owed > 0 && <> · {fmtMoney(r.owed)} wages</>}
+                      </>
+                    ) : (
+                      <>
+                        {fmtMoney(r.owed)} wages + {fmtMoney(p?.fromTips ?? 0)}{" "}
+                        tips
+                        {p && p.ownerAdds > 0 && (
+                          <>
+                            {" + "}
+                            <span className="font-semibold text-[#a04a4a]">
+                              {fmtMoney(p.ownerAdds)} from you
+                            </span>
+                          </>
+                        )}
+                        {" · "}
+                        {fmtHours(r.hours)}
+                        {p?.effective != null && (
+                          <> · ≈{fmtMoney(p.effective)}/hr</>
+                        )}
                       </>
                     )}
-                    {" · "}
-                    {fmtHours(r.hours)}
-                    {p?.effective != null && <> · ≈{fmtMoney(p.effective)}/hr</>}
                   </p>
                   <div className="ml-4 mt-2 flex flex-wrap items-center gap-1.5">
                     {r.empShifts.map((s) => (

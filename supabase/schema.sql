@@ -9,6 +9,7 @@ create table public.employees (
   color text not null default '#2d4f9e',
   active boolean not null default true,
   phone text,
+  is_owner boolean not null default false,
   created_at timestamptz not null default now()
 );
 

@@ -8,12 +8,14 @@ import {
   type Settings,
   type Shift,
   dayProfit,
-  fmtDayShort,
   fmtMoney,
+  parseDateStr,
+  parseSquareReport,
   round2,
   shiftPay,
+  toDateStr,
 } from "@/lib/portal";
-import { Card, SectionLabel } from "./ui";
+import { Card, Modal, SectionLabel, btnSolidCls, inputCls } from "./ui";
 
 type Props = {
   supabase: SupabaseClient;
@@ -29,6 +31,7 @@ const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
+const DAY_HEADERS = ["M", "T", "W", "T", "F", "S", "S"];
 
 const COST_FIELDS = [
   ["mini_cost", "Mini (4oz) cost"],
@@ -37,6 +40,54 @@ const COST_FIELDS = [
   ["topping_cost", "Extra topping cost"],
   ["landlord_pct", "Landlord share %"],
 ] as const;
+
+const MONEY_FIELDS = [
+  ["net_sales", "Net sales $"],
+  ["tax", "Tax $"],
+  ["fees", "Fees $"],
+] as const;
+
+const COUNT_FIELDS = [
+  ["mini_cups", "Mini"],
+  ["regular_cups", "Regular"],
+  ["super_cups", "Super"],
+  ["toppings", "Xtra top."],
+] as const;
+
+type FormState = {
+  net_sales: string;
+  tax: string;
+  fees: string;
+  mini_cups: string;
+  regular_cups: string;
+  super_cups: string;
+  toppings: string;
+};
+
+const emptyForm: FormState = {
+  net_sales: "", tax: "", fees: "",
+  mini_cups: "", regular_cups: "", super_cups: "", toppings: "",
+};
+
+function formFrom(sale: DailySales | undefined): FormState {
+  if (!sale) return { ...emptyForm };
+  return {
+    net_sales: String(Number(sale.net_sales)),
+    tax: String(Number(sale.tax)),
+    fees: String(Number(sale.fees)),
+    mini_cups: String(sale.mini_cups),
+    regular_cups: String(sale.regular_cups),
+    super_cups: String(sale.super_cups),
+    toppings: String(sale.toppings),
+  };
+}
+
+/** Compact money for calendar cells: 2286 -> "2.3k", -120 -> "-120". */
+function fmtCompact(v: number): string {
+  const sign = v < 0 ? "-" : "";
+  const a = Math.abs(v);
+  return a >= 1000 ? `${sign}${(a / 1000).toFixed(1)}k` : `${sign}${Math.round(a)}`;
+}
 
 export function ProfitView({
   supabase,
@@ -48,9 +99,14 @@ export function ProfitView({
   notify,
 }: Props) {
   const today = new Date();
+  const todayStr = toDateStr(today);
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const [sel, setSel] = useState<string | null>(null);
+  const [selDate, setSelDate] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>({ ...emptyForm });
+  const [paste, setPaste] = useState("");
+  const [parsedTips, setParsedTips] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
 
   function moveMonth(delta: number) {
     const next = new Date(year, month + delta, 1);
@@ -68,15 +124,29 @@ export function ProfitView({
     return map;
   }, [shifts]);
 
-  const monthRows = useMemo(() => {
-    return sales
-      .filter((s) => s.work_date.startsWith(prefix))
-      .sort((a, b) => b.work_date.localeCompare(a.work_date))
-      .map((s) => ({
-        sales: s,
-        p: dayProfit(s, settings, laborByDate.get(s.work_date) ?? 0),
-      }));
-  }, [sales, prefix, settings, laborByDate]);
+  const salesByDate = useMemo(
+    () => new Map(sales.map((s) => [s.work_date, s])),
+    [sales],
+  );
+
+  const profitByDate = useMemo(() => {
+    const map = new Map<string, DayProfit>();
+    for (const s of sales) {
+      map.set(
+        s.work_date,
+        dayProfit(s, settings, laborByDate.get(s.work_date) ?? 0),
+      );
+    }
+    return map;
+  }, [sales, settings, laborByDate]);
+
+  const monthRows = useMemo(
+    () =>
+      sales
+        .filter((s) => s.work_date.startsWith(prefix))
+        .map((s) => ({ sales: s, p: profitByDate.get(s.work_date)! })),
+    [sales, prefix, profitByDate],
+  );
 
   const totals = useMemo(() => {
     const sum = (f: (r: { sales: DailySales; p: DayProfit }) => number) =>
@@ -92,7 +162,137 @@ export function ProfitView({
     };
   }, [monthRows]);
 
-  async function saveSetting(key: (typeof COST_FIELDS)[number][0], input: HTMLInputElement) {
+  const cells = useMemo(() => {
+    const first = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const blanks = (first.getDay() + 6) % 7;
+    const out: (string | null)[] = Array(blanks).fill(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      out.push(toDateStr(new Date(year, month, d)));
+    }
+    return out;
+  }, [year, month]);
+
+  function openDay(dateStr: string) {
+    setSelDate(dateStr);
+    setForm(formFrom(salesByDate.get(dateStr)));
+    setPaste("");
+    setParsedTips(null);
+  }
+
+  function handlePaste(text: string) {
+    setPaste(text);
+    const p = parseSquareReport(text);
+    const found =
+      p.net_sales !== null || p.mini_cups !== null || p.regular_cups !== null;
+    if (!found) return;
+    setForm((prev) => ({
+      net_sales: p.net_sales !== null ? String(p.net_sales) : prev.net_sales,
+      tax: p.tax !== null ? String(p.tax) : prev.tax,
+      fees: p.fees !== null ? String(p.fees) : prev.fees,
+      mini_cups: p.mini_cups !== null ? String(p.mini_cups) : prev.mini_cups,
+      regular_cups:
+        p.regular_cups !== null ? String(p.regular_cups) : prev.regular_cups,
+      super_cups:
+        p.super_cups !== null ? String(p.super_cups) : prev.super_cups,
+      toppings: p.toppings !== null ? String(p.toppings) : prev.toppings,
+    }));
+    setParsedTips(p.tips);
+    if (p.date && p.date !== selDate) {
+      setSelDate(p.date);
+      const d = parseDateStr(p.date);
+      setYear(d.getFullYear());
+      setMonth(d.getMonth());
+      notify(`Filled from the ${p.date} report`);
+    }
+  }
+
+  async function saveSales() {
+    if (!selDate) return;
+    const money = (v: string) => Math.round(Number(v || "0") * 100) / 100;
+    const count = (v: string) => Math.round(Number(v || "0"));
+    const vals = {
+      net_sales: money(form.net_sales),
+      tax: money(form.tax),
+      fees: money(form.fees),
+      mini_cups: count(form.mini_cups),
+      regular_cups: count(form.regular_cups),
+      super_cups: count(form.super_cups),
+      toppings: count(form.toppings),
+    };
+    if (Object.values(vals).some((v) => !Number.isFinite(v) || v < 0)) {
+      notify("Sales numbers can't be negative");
+      return;
+    }
+    setBusy(true);
+    const allZero = Object.values(vals).every((v) => v === 0);
+    if (allZero) {
+      const { error } = await supabase
+        .from("daily_sales")
+        .delete()
+        .eq("work_date", selDate);
+      if (error) notify(`Couldn't clear: ${error.message}`);
+      else {
+        await onChange();
+        notify("Sales cleared");
+        setSelDate(null);
+      }
+    } else {
+      const { error } = await supabase.from("daily_sales").upsert({
+        work_date: selDate,
+        ...vals,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) notify(`Couldn't save: ${error.message}`);
+      else {
+        if (parsedTips !== null && parsedTips > 0) {
+          await supabase.from("tips").upsert({
+            work_date: selDate,
+            amount: Math.round(parsedTips * 100) / 100,
+            updated_at: new Date().toISOString(),
+          });
+        }
+        await onChange();
+        notify(
+          parsedTips !== null && parsedTips > 0
+            ? "Sales + tips saved"
+            : "Sales saved",
+        );
+        setSelDate(null);
+      }
+    }
+    setBusy(false);
+  }
+
+  const previewProfit = useMemo(() => {
+    if (!selDate) return null;
+    const money = (v: string) => Number(v || "0");
+    const count = (v: string) => Number(v || "0");
+    const temp: DailySales = {
+      work_date: selDate,
+      net_sales: money(form.net_sales),
+      tax: money(form.tax),
+      fees: money(form.fees),
+      mini_cups: count(form.mini_cups),
+      regular_cups: count(form.regular_cups),
+      super_cups: count(form.super_cups),
+      toppings: count(form.toppings),
+      updated_at: "",
+    };
+    if (
+      Object.values(temp).some(
+        (v) => typeof v === "number" && !Number.isFinite(v),
+      )
+    ) {
+      return null;
+    }
+    return dayProfit(temp, settings, laborByDate.get(selDate) ?? 0);
+  }, [selDate, form, settings, laborByDate]);
+
+  async function saveSetting(
+    key: (typeof COST_FIELDS)[number][0],
+    input: HTMLInputElement,
+  ) {
     const v = Number(input.value);
     const current = Number(settings[key]);
     if (!Number.isFinite(v) || v < 0) {
@@ -192,65 +392,57 @@ export function ProfitView({
         </p>
       )}
 
-      {/* Per-day list */}
-      {monthRows.length === 0 ? (
-        <Card className="py-10 text-center">
-          <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted">
-            No sales logged this month yet. After close, open the day on the
-            Calendar tab and copy the numbers from the Square email into the
-            Sales section.
-          </p>
-        </Card>
-      ) : (
-        <Card>
-          <SectionLabel>Day by day</SectionLabel>
-          <div className="mt-3 flex flex-col gap-2">
-            {monthRows.map(({ sales: s, p }) => (
-              <div key={s.work_date}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSel(sel === s.work_date ? null : s.work_date)
-                  }
-                  className="flex w-full items-center justify-between gap-2 text-left text-sm"
-                >
-                  <span
-                    className={
-                      sel === s.work_date
-                        ? "font-bold text-charcoal"
-                        : "text-charcoal"
-                    }
-                  >
-                    {fmtDayShort(s.work_date)}
-                  </span>
-                  <span className="flex items-center gap-3">
-                    <span className="text-xs text-muted">
-                      {fmtMoney(Number(s.net_sales))} sales
-                    </span>
-                    <span
-                      className={`font-display ${p.profit < 0 ? "text-[#a04a4a]" : "text-[#5a7d4f]"}`}
-                    >
-                      {fmtMoney(p.profit)}
-                    </span>
-                  </span>
-                </button>
-                {sel === s.work_date && (
-                  <p className="mt-1 text-[11px] leading-relaxed text-muted">
-                    {s.mini_cups} mini · {s.regular_cups} regular ·{" "}
-                    {s.super_cups} super · {s.toppings} toppings
-                    <br />
-                    cups {fmtMoney(p.cogs)} · wages {fmtMoney(p.labor)} · fees{" "}
-                    {fmtMoney(Number(s.fees))} · tax {fmtMoney(Number(s.tax))}
-                    <br />
-                    landlord {fmtMoney(p.landlordShare)} → after:{" "}
-                    {fmtMoney(p.afterLandlord)}
-                  </p>
-                )}
-              </div>
-            ))}
+      {/* Profit calendar */}
+      <p className="text-center text-[10px] text-muted">
+        Tap a day to paste the Square email or enter sales.
+      </p>
+      <div className="grid grid-cols-7 gap-px border border-charcoal/15 bg-charcoal/15 sm:-ml-[5%] sm:w-[110%]">
+        {DAY_HEADERS.map((h, i) => (
+          <div
+            key={`${h}-${i}`}
+            className="bg-cream py-1.5 text-center text-[9px] font-semibold uppercase tracking-[0.2em] text-muted"
+          >
+            {h}
           </div>
-        </Card>
-      )}
+        ))}
+        {cells.map((dateStr, i) =>
+          dateStr === null ? (
+            <div key={`blank-${i}`} className="min-h-14 bg-cream/60 sm:min-h-16" />
+          ) : (
+            <button
+              key={dateStr}
+              type="button"
+              onClick={() => openDay(dateStr)}
+              className={`flex min-h-14 flex-col items-center justify-between bg-cream-soft p-1 transition hover:bg-cream-deep sm:min-h-16 ${
+                dateStr === todayStr
+                  ? "outline outline-1 -outline-offset-1 outline-charcoal"
+                  : ""
+              }`}
+            >
+              <span
+                className={`self-start px-0.5 text-[11px] ${
+                  dateStr === todayStr
+                    ? "font-bold text-charcoal"
+                    : "text-charcoal-soft"
+                }`}
+              >
+                {Number(dateStr.slice(8))}
+              </span>
+              {profitByDate.has(dateStr) && (
+                <span
+                  className={`pb-0.5 text-[10px] font-semibold ${
+                    profitByDate.get(dateStr)!.profit < 0
+                      ? "text-[#a04a4a]"
+                      : "text-[#5a7d4f]"
+                  }`}
+                >
+                  {fmtCompact(profitByDate.get(dateStr)!.profit)}
+                </span>
+              )}
+            </button>
+          ),
+        )}
+      </div>
 
       {/* Cost settings */}
       <details className="group">
@@ -285,6 +477,112 @@ export function ProfitView({
           </p>
         </Card>
       </details>
+
+      {/* Entry modal */}
+      {selDate && (
+        <Modal
+          title={parseDateStr(selDate).toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+          })}
+          onClose={() => setSelDate(null)}
+        >
+          <div className="flex flex-col gap-4">
+            <div>
+              <SectionLabel>Paste the Square email</SectionLabel>
+              <textarea
+                value={paste}
+                onChange={(e) => handlePaste(e.target.value)}
+                placeholder="Copy the whole sales-report email and paste it here — everything below fills in by itself. No AI, just pattern matching."
+                rows={3}
+                className={`${inputCls} mt-2 resize-y text-xs`}
+              />
+              {parsedTips !== null && (
+                <p className="mt-1 text-[11px] text-[#5a7d4f]">
+                  Tips {fmtMoney(parsedTips)} found — will be saved to this
+                  day&apos;s tips too.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <SectionLabel>Numbers</SectionLabel>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {MONEY_FIELDS.map(([key, label]) => (
+                  <label key={key} className="flex flex-col gap-1">
+                    <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+                      {label}
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={form[key]}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                      aria-label={label}
+                      className={inputCls}
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="mt-2 grid grid-cols-4 gap-2">
+                {COUNT_FIELDS.map(([key, label]) => (
+                  <label key={key} className="flex flex-col gap-1">
+                    <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+                      {label}
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      step="1"
+                      min="0"
+                      placeholder="0"
+                      value={form[key]}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                      aria-label={`${label} count`}
+                      className={inputCls}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {previewProfit && Number(form.net_sales) > 0 && (
+              <p className="text-center text-xs text-muted">
+                Est. profit:{" "}
+                <span
+                  className={`font-display text-base ${previewProfit.profit < 0 ? "text-[#a04a4a]" : "text-[#5a7d4f]"}`}
+                >
+                  {fmtMoney(previewProfit.profit)}
+                </span>{" "}
+                <span className="text-[10px]">
+                  (cups {fmtMoney(previewProfit.cogs)} · wages{" "}
+                  {fmtMoney(previewProfit.labor)})
+                </span>
+              </p>
+            )}
+
+            <button
+              type="button"
+              disabled={busy}
+              onClick={saveSales}
+              className={btnSolidCls}
+            >
+              Save
+            </button>
+            <p className="text-center text-[10px] text-muted/70">
+              Saving with every field at 0 clears the day.
+            </p>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

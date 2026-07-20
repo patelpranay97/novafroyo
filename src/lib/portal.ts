@@ -74,6 +74,90 @@ export const DEFAULT_SETTINGS: Settings = {
   updated_at: "",
 };
 
+// ---------- Square daily-report paste parser (pure regex, no AI) ----------
+
+export type ParsedSquareReport = {
+  date: string | null; // YYYY-MM-DD from the report's coverage line
+  net_sales: number | null;
+  tax: number | null;
+  fees: number | null;
+  tips: number | null;
+  mini_cups: number | null;
+  regular_cups: number | null;
+  super_cups: number | null;
+  toppings: number | null;
+};
+
+const MONTH_ABBR: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
+function moneyAfter(text: string, label: RegExp): number | null {
+  const m = text.match(label);
+  if (!m) return null;
+  return Number(m[1].replace(/,/g, ""));
+}
+
+/**
+ * Pull the day's numbers out of a pasted Square "Sales Report" email.
+ * Item rows come in pairs (item line, then its "Regular × N" size-variant
+ * line with the same count), so even-indexed rows in the Item Sales
+ * section are the real items — that's how the "Regular" cup is told apart
+ * from the variant lines.
+ */
+export function parseSquareReport(text: string): ParsedSquareReport {
+  const out: ParsedSquareReport = {
+    date: null, net_sales: null, tax: null, fees: null, tips: null,
+    mini_cups: null, regular_cups: null, super_cups: null, toppings: null,
+  };
+
+  const d = text.match(
+    /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),\s+(\d{4})\s+12:00\s*AM/i,
+  ) ?? text.match(
+    /Reported on\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),\s+(\d{4})/i,
+  );
+  if (d) {
+    const mo = MONTH_ABBR[d[1].toLowerCase().slice(0, 3)];
+    out.date = `${d[3]}-${String(mo).padStart(2, "0")}-${String(Number(d[2])).padStart(2, "0")}`;
+  }
+
+  out.net_sales = moneyAfter(text, /Net Sales\s*\$?([\d,]+\.?\d*)/i);
+  out.tax = moneyAfter(text, /\bTax\s*\$?([\d,]+\.?\d*)/i);
+  out.tips = moneyAfter(text, /\bTips\s*\$?([\d,]+\.?\d*)/i);
+  out.fees = moneyAfter(text, /\bFees\s*\(?\$?([\d,]+\.?\d*)\)?/i);
+
+  const itemSection = text.split(/Item Sales/i)[1] ?? text;
+  const rows = [
+    ...itemSection.matchAll(/([A-Za-z][A-Za-z .]*?)\s*×\s*(\d+)\s*\$?([\d,]+\.?\d*)/g),
+  ].map((m) => ({ name: m[1].trim(), count: Number(m[2]) }));
+  // Even indices are the items; odd are their size-variant echo lines.
+  const items = rows.filter((_, i) => i % 2 === 0);
+  for (const it of items) {
+    if (/extra\s*topping/i.test(it.name)) out.toppings = it.count;
+    else if (/mini/i.test(it.name)) out.mini_cups = it.count;
+    else if (/super/i.test(it.name)) out.super_cups = it.count;
+    else if (/^regular$/i.test(it.name)) out.regular_cups = it.count;
+  }
+  // Fallback for the Regular cup if pairing didn't identify it: its count is
+  // the one echoed twice among "Regular × N" lines (item + its own variant).
+  if (out.regular_cups === null) {
+    const regCounts = rows
+      .filter((r) => /^regular$/i.test(r.name))
+      .map((r) => r.count);
+    const tally = new Map<number, number>();
+    for (const c of regCounts) tally.set(c, (tally.get(c) ?? 0) + 1);
+    const known = [out.toppings, out.mini_cups, out.super_cups];
+    for (const k of known) {
+      if (k !== null && tally.has(k)) tally.set(k, (tally.get(k) ?? 0) - 1);
+    }
+    let best: number | null = null;
+    for (const [count, n] of tally) if (n >= 2) best = count;
+    out.regular_cups = best ?? null;
+  }
+  return out;
+}
+
 export type DayProfit = {
   cogs: number;
   labor: number;

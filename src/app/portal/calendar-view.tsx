@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  type DailySales,
   type Employee,
   type ScheduledShift,
   type Shift,
@@ -26,8 +25,6 @@ type Props = {
   tips: TipDay[];
   schedule: ScheduledShift[];
   scheduleReady: boolean;
-  sales: DailySales[];
-  salesReady: boolean;
   onChange: () => Promise<void>;
   notify: (msg: string) => void;
 };
@@ -41,8 +38,6 @@ export function CalendarView({
   tips,
   schedule,
   scheduleReady,
-  sales,
-  salesReady,
   onChange,
   notify,
 }: Props) {
@@ -327,8 +322,6 @@ export function CalendarView({
           shifts={shiftsByDate.get(selectedDate) ?? []}
           scheduled={scheduleByDate.get(selectedDate) ?? []}
           scheduleReady={scheduleReady}
-          sale={sales.find((s) => s.work_date === selectedDate) ?? null}
-          salesReady={salesReady}
           tip={tipsByDate.get(selectedDate) ?? null}
           onChange={onChange}
           notify={notify}

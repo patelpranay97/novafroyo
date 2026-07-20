@@ -194,8 +194,6 @@ export default function PortalPage() {
                 tips={tips}
                 schedule={schedule}
                 scheduleReady={scheduleReady}
-                sales={sales}
-                salesReady={salesReady}
                 onChange={refresh}
                 notify={notify}
               />

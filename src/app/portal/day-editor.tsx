@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  type DailySales,
   type Employee,
   type ScheduledShift,
   type Shift,
@@ -21,8 +20,6 @@ type Props = {
   shifts: Shift[];
   scheduled: ScheduledShift[];
   scheduleReady: boolean;
-  sale: DailySales | null;
-  salesReady: boolean;
   tip: TipDay | null;
   onChange: () => Promise<void>;
   notify: (msg: string) => void;
@@ -38,8 +35,6 @@ export function DayEditor({
   shifts,
   scheduled,
   scheduleReady,
-  sale,
-  salesReady,
   tip,
   onChange,
   notify,
@@ -54,15 +49,6 @@ export function DayEditor({
   const [schedEmpId, setSchedEmpId] = useState("");
   const [schedStart, setSchedStart] = useState("12:00");
   const [schedEnd, setSchedEnd] = useState("20:00");
-  const [sl, setSl] = useState(() => ({
-    net_sales: sale ? String(Number(sale.net_sales)) : "",
-    tax: sale ? String(Number(sale.tax)) : "",
-    fees: sale ? String(Number(sale.fees)) : "",
-    mini_cups: sale ? String(sale.mini_cups) : "",
-    regular_cups: sale ? String(sale.regular_cups) : "",
-    super_cups: sale ? String(sale.super_cups) : "",
-    toppings: sale ? String(sale.toppings) : "",
-  }));
   const [busy, setBusy] = useState(false);
 
   const title = useMemo(() => {
@@ -189,49 +175,6 @@ export function DayEditor({
     const { error } = await supabase.from("schedule").delete().eq("id", s.id);
     if (error) notify(`Couldn't remove: ${error.message}`);
     else await onChange();
-    setBusy(false);
-  }
-
-  async function saveSales() {
-    const money = (v: string) => Math.round(Number(v || "0") * 100) / 100;
-    const count = (v: string) => Math.round(Number(v || "0"));
-    const vals = {
-      net_sales: money(sl.net_sales),
-      tax: money(sl.tax),
-      fees: money(sl.fees),
-      mini_cups: count(sl.mini_cups),
-      regular_cups: count(sl.regular_cups),
-      super_cups: count(sl.super_cups),
-      toppings: count(sl.toppings),
-    };
-    if (Object.values(vals).some((v) => !Number.isFinite(v) || v < 0)) {
-      notify("Sales numbers can't be negative");
-      return;
-    }
-    setBusy(true);
-    const allZero = Object.values(vals).every((v) => v === 0);
-    if (allZero) {
-      const { error } = await supabase
-        .from("daily_sales")
-        .delete()
-        .eq("work_date", date);
-      if (error) notify(`Couldn't clear sales: ${error.message}`);
-      else {
-        await onChange();
-        notify("Sales cleared");
-      }
-    } else {
-      const { error } = await supabase.from("daily_sales").upsert({
-        work_date: date,
-        ...vals,
-        updated_at: new Date().toISOString(),
-      });
-      if (error) notify(`Couldn't save sales: ${error.message}`);
-      else {
-        await onChange();
-        notify("Sales saved — see the Profit tab");
-      }
-    }
     setBusy(false);
   }
 
@@ -542,88 +485,6 @@ export function DayEditor({
                 {fmtMoney(Math.floor((tipNum / workedCount) * 100) / 100)} each
               </span>
             </p>
-          )}
-        </div>
-
-        {/* Sales — copied from the end-of-day Square email */}
-        <div>
-          <SectionLabel>Sales (from the Square email)</SectionLabel>
-          {!salesReady ? (
-            <p className="mt-2 text-xs text-muted">
-              Run{" "}
-              <span className="font-semibold text-charcoal">
-                supabase/migration-daily-sales.sql
-              </span>{" "}
-              in the Supabase SQL Editor to turn on sales tracking.
-            </p>
-          ) : (
-            <>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                {(
-                  [
-                    ["net_sales", "Net sales $"],
-                    ["tax", "Tax $"],
-                    ["fees", "Fees $"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <label key={key} className="flex flex-col gap-1">
-                    <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
-                      {label}
-                    </span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={sl[key]}
-                      onChange={(e) =>
-                        setSl((prev) => ({ ...prev, [key]: e.target.value }))
-                      }
-                      aria-label={label}
-                      className={inputCls}
-                    />
-                  </label>
-                ))}
-              </div>
-              <div className="mt-2 grid grid-cols-4 gap-2">
-                {(
-                  [
-                    ["mini_cups", "Mini"],
-                    ["regular_cups", "Regular"],
-                    ["super_cups", "Super"],
-                    ["toppings", "Xtra top."],
-                  ] as const
-                ).map(([key, label]) => (
-                  <label key={key} className="flex flex-col gap-1">
-                    <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
-                      {label}
-                    </span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      step="1"
-                      min="0"
-                      placeholder="0"
-                      value={sl[key]}
-                      onChange={(e) =>
-                        setSl((prev) => ({ ...prev, [key]: e.target.value }))
-                      }
-                      aria-label={`${label} count`}
-                      className={inputCls}
-                    />
-                  </label>
-                ))}
-              </div>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={saveSales}
-                className={`${btnSolidCls} mt-2 w-full`}
-              >
-                Save sales
-              </button>
-            </>
           )}
         </div>
       </div>

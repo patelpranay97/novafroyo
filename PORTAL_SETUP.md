@@ -72,8 +72,9 @@ owner's to distribute.
 
 **Daily sales + Profit tab** (added July 2026): run
 [`supabase/migration-daily-sales.sql`](supabase/migration-daily-sales.sql)
-once. After close, open the day on the Calendar tab and copy Net Sales, Tax,
-Fees, and the four item counts from the Square email into the Sales section;
-the Profit tab shows netish profit per day (sales − cup costs − wages − fees),
-the landlord share separately, and the month's sales tax to set aside. Unit
-costs are editable under "Cost settings" on the Profit tab.
+once. After close, open the Profit tab, tap the day on its calendar, and
+paste the whole Square sales-report email into the box — every field (net
+sales, tax, fees, item counts, even tips) fills in automatically via plain
+pattern matching, no AI. The tab shows netish profit per day (sales − cup
+costs − wages − fees), the landlord share separately, and the month's sales
+tax to set aside. Unit costs are editable under "Cost settings".

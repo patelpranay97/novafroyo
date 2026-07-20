@@ -193,7 +193,7 @@ export function WeekView({
       notify(
         row.allPaid
           ? `${row.emp?.name ?? "Employee"} marked unpaid`
-          : `${row.emp?.name ?? "Employee"} paid ${fmtMoney(row.unpaidAmount)}`,
+          : `${row.emp?.name ?? "Employee"} marked paid`,
       );
     }
     setBusyId(null);
@@ -201,30 +201,17 @@ export function WeekView({
 
   async function copySummary() {
     const lines = [
-      `NOVA — Week of ${fmtWeekRange(monday)}`,
-      ...rows.map(
-        (r) =>
-          `${r.emp?.name ?? "?"}: ${fmtHours(r.hours)} — ${fmtMoney(r.owed)} — ${
-            r.allPaid ? "PAID" : "UNPAID"
-          }`,
-      ),
-      `Payroll: ${fmtMoney(totalPayroll)}`,
-      `Tips: ${fmtMoney(weekTips)}`,
-      ...(rows.length > 0
-        ? [
-            ``,
-            `Payout plan @ ${fmtMoney(wageTarget)}/hr:`,
-            ...payout.perPerson.map((p, i) => {
-              const r = rows[i];
-              const extra =
-                p.ownerAdds > 0 ? ` + ${fmtMoney(p.ownerAdds)} from you` : "";
-              return `${r.emp?.name ?? "?"}: ${fmtMoney(r.owed)} wages + ${fmtMoney(p.fromTips)} tips${extra} = ${fmtMoney(p.total)}`;
-            }),
-            payout.covered
-              ? `Bonus pool: ${fmtMoney(payout.bonusPool)} (split by hours)`
-              : `You add: ${fmtMoney(payout.ownerAdds)} to reach ${fmtMoney(wageTarget)}/hr`,
-          ]
-        : []),
+      `NOVA — Week of ${fmtWeekRange(monday)} (@ ${fmtMoney(wageTarget)}/hr)`,
+      ...payout.perPerson.map((p, i) => {
+        const r = rows[i];
+        const extra =
+          p.ownerAdds > 0 ? ` + ${fmtMoney(p.ownerAdds)} from you` : "";
+        return `${r.emp?.name ?? "?"}: PAY ${fmtMoney(p.total)} (${fmtMoney(r.owed)} wages + ${fmtMoney(p.fromTips)} tips${extra}) — ${fmtHours(r.hours)} — ${r.allPaid ? "PAID" : "UNPAID"}`;
+      }),
+      `Wages ${fmtMoney(totalPayroll)} · Tips ${fmtMoney(weekTips)}`,
+      payout.covered
+        ? `Tips cover everyone · bonus pool ${fmtMoney(payout.bonusPool)}`
+        : `You add ${fmtMoney(payout.ownerAdds)} to reach ${fmtMoney(wageTarget)}/hr`,
     ];
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
@@ -296,7 +283,7 @@ export function WeekView({
         </p>
       )}
 
-      {/* Per-employee cards */}
+      {/* Pay your team — ONE number per person: wages + tips (+ top-up) */}
       {rows.length === 0 ? (
         <Card className="py-10 text-center">
           <p className="text-sm text-muted">
@@ -304,25 +291,91 @@ export function WeekView({
           </p>
         </Card>
       ) : (
-        <div className="flex flex-col gap-3">
-          {rows.map((r) => (
-            <Card key={r.empId}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ background: r.emp?.color ?? "#999" }}
-                      aria-hidden="true"
-                    />
-                    <p className="truncate font-display text-base tracking-[0.06em]">
-                      {r.emp?.name ?? "Unknown"}
-                    </p>
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <SectionLabel>Pay your team</SectionLabel>
+            <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
+              Target
+              <span className="relative">
+                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted">
+                  $
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.25"
+                  min="0"
+                  value={wageTarget}
+                  onChange={(e) => updateWageTarget(e.target.value)}
+                  aria-label="Target hourly wage"
+                  className="w-16 border border-charcoal/25 bg-cream py-1 pl-5 pr-1 text-right text-sm normal-case tracking-normal outline-none focus:border-charcoal"
+                />
+              </span>
+              /hr
+            </label>
+          </div>
+          <p className="mt-1 text-[10px] leading-relaxed text-muted/80">
+            The big number is what each person takes home this week — wages +
+            tips, with tips first guaranteeing {fmtMoney(wageTarget)}/hr and
+            the rest split by hours as a bonus.
+          </p>
+
+          {payout.covered ? (
+            <p className="mt-2 text-sm font-semibold text-[#5a7d4f]">
+              ✓ Tips cover everyone to {fmtMoney(wageTarget)}/hr
+              {payout.bonusPool > 0 && (
+                <> · {fmtMoney(payout.bonusPool)} bonus</>
+              )}
+            </p>
+          ) : (
+            <p className="mt-2 text-sm font-semibold text-[#a04a4a]">
+              Tips cover {fmtMoney(payout.tipsToGuarantee)} of{" "}
+              {fmtMoney(payout.totalNeed)} needed — you add{" "}
+              {fmtMoney(payout.ownerAdds)}
+            </p>
+          )}
+
+          <div className="mt-4 flex flex-col gap-4">
+            {rows.map((r, i) => {
+              const p = payout.perPerson[i];
+              const partiallyPaid =
+                !r.allPaid && r.empShifts.some((s) => s.paid_at);
+              return (
+                <div
+                  key={r.empId}
+                  className="border-t border-charcoal/10 pt-3 first:border-t-0 first:pt-0"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ background: r.emp?.color ?? "#999" }}
+                        aria-hidden="true"
+                      />
+                      <span className="truncate font-display text-base tracking-[0.06em]">
+                        {r.emp?.name ?? "Unknown"}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-display text-xl">
+                      {fmtMoney(p?.total ?? r.owed)}
+                    </span>
                   </div>
-                  <p className="mt-1 text-xs text-muted">
-                    {fmtHours(r.hours)} · {fmtMoney(r.owed)}
+                  <p className="ml-4 mt-0.5 text-xs text-muted">
+                    {fmtMoney(r.owed)} wages + {fmtMoney(p?.fromTips ?? 0)}{" "}
+                    tips
+                    {p && p.ownerAdds > 0 && (
+                      <>
+                        {" + "}
+                        <span className="font-semibold text-[#a04a4a]">
+                          {fmtMoney(p.ownerAdds)} from you
+                        </span>
+                      </>
+                    )}
+                    {" · "}
+                    {fmtHours(r.hours)}
+                    {p?.effective != null && <> · ≈{fmtMoney(p.effective)}/hr</>}
                   </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="ml-4 mt-2 flex flex-wrap items-center gap-1.5">
                     {r.empShifts.map((s) => (
                       <span
                         key={s.id}
@@ -333,32 +386,46 @@ export function WeekView({
                         {s.note ? " ✎" : ""}
                       </span>
                     ))}
+                    <button
+                      type="button"
+                      disabled={busyId === r.empId}
+                      onClick={() => togglePaid(r)}
+                      className={
+                        r.allPaid
+                          ? "ml-auto shrink-0 border border-[#5a7d4f] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5a7d4f] transition hover:opacity-70 disabled:opacity-40"
+                          : "ml-auto shrink-0 border border-charcoal bg-charcoal px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-cream transition hover:bg-charcoal-soft disabled:opacity-40"
+                      }
+                    >
+                      {r.allPaid
+                        ? "Paid ✓"
+                        : partiallyPaid
+                          ? "Mark rest paid"
+                          : "Mark paid"}
+                    </button>
                   </div>
                   {r.priorUnpaid > 0 && (
-                    <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#a04a4a]">
+                    <p className="ml-4 mt-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#a04a4a]">
                       + {fmtMoney(r.priorUnpaid)} unpaid from earlier weeks
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  disabled={busyId === r.empId}
-                  onClick={() => togglePaid(r)}
-                  className={
-                    r.allPaid
-                      ? "shrink-0 border border-[#5a7d4f] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5a7d4f] transition hover:opacity-70 disabled:opacity-40"
-                      : "shrink-0 border border-charcoal bg-charcoal px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-cream transition hover:bg-charcoal-soft disabled:opacity-40"
-                  }
-                >
-                  {r.allPaid ? "Paid ✓" : `Pay ${fmtMoney(r.unpaidAmount)}`}
-                </button>
-              </div>
-            </Card>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        </Card>
       )}
 
-      {/* Tip splitter */}
+      {/* Optional tip math — collapsed so payroll stays one clear number */}
+      <details className="group">
+        <summary className="cursor-pointer list-none text-center text-[10px] font-semibold uppercase tracking-[0.3em] text-muted transition hover:text-charcoal">
+          <span className="group-open:hidden">▸ Show tip math</span>
+          <span className="hidden group-open:inline">▾ Hide tip math</span>
+        </summary>
+        <p className="mt-2 text-center text-[10px] text-muted/70">
+          For comparison only — the amounts to pay are in “Pay your team”
+          above.
+        </p>
+        <div className="mt-3 flex flex-col gap-5">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <SectionLabel>Tip splitter</SectionLabel>
@@ -511,95 +578,8 @@ export function WeekView({
         </Card>
       )}
 
-      {/* Payout plan — tips guarantee the target, leftover becomes a bonus */}
-      {rows.length > 0 && (
-        <Card>
-          <div className="flex items-center justify-between gap-3">
-            <SectionLabel>Payout plan</SectionLabel>
-            <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
-              Target
-              <span className="relative">
-                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted">
-                  $
-                </span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.25"
-                  min="0"
-                  value={wageTarget}
-                  onChange={(e) => updateWageTarget(e.target.value)}
-                  aria-label="Target hourly wage"
-                  className="w-16 border border-charcoal/25 bg-cream py-1 pl-5 pr-1 text-right text-sm normal-case tracking-normal outline-none focus:border-charcoal"
-                />
-              </span>
-              /hr
-            </label>
-          </div>
-          <p className="mt-1 text-[10px] leading-relaxed text-muted/80">
-            Tips first bring everyone to {fmtMoney(wageTarget)}/hr; what&apos;s
-            left is a bonus split by hours.
-          </p>
-
-          {/* Headline */}
-          {payout.covered ? (
-            <p className="mt-3 text-sm font-semibold text-[#5a7d4f]">
-              ✓ Tips cover everyone to {fmtMoney(wageTarget)}/hr
-              {payout.bonusPool > 0 && (
-                <> · {fmtMoney(payout.bonusPool)} bonus pool</>
-              )}
-            </p>
-          ) : (
-            <p className="mt-3 text-sm font-semibold text-[#a04a4a]">
-              Tips cover {fmtMoney(payout.tipsToGuarantee)} of{" "}
-              {fmtMoney(payout.totalNeed)} needed — you add{" "}
-              {fmtMoney(payout.ownerAdds)}
-            </p>
-          )}
-
-          <div className="mt-3 flex flex-col gap-2.5">
-            {payout.perPerson.map((p, i) => {
-              const r = rows[i];
-              return (
-                <div key={p.id}>
-                  <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="flex min-w-0 flex-1 items-center gap-2">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ background: r.emp?.color ?? "#999" }}
-                        aria-hidden="true"
-                      />
-                      <span className="truncate">
-                        {r.emp?.name ?? "Unknown"}
-                      </span>
-                    </span>
-                    <span className="shrink-0 font-display">
-                      {fmtMoney(p.total)}
-                    </span>
-                  </div>
-                  <p className="ml-4 text-xs text-muted">
-                    {fmtMoney(r.owed)} wages · {fmtMoney(p.fromTips)} tips
-                    {p.bonus > 0 && (
-                      <> (incl. {fmtMoney(p.bonus)} bonus)</>
-                    )}
-                    {p.ownerAdds > 0 && (
-                      <>
-                        {" · "}
-                        <span className="font-semibold text-[#a04a4a]">
-                          +{fmtMoney(p.ownerAdds)} from you
-                        </span>
-                      </>
-                    )}
-                    {p.effective !== null && (
-                      <> · ≈{fmtMoney(p.effective)}/hr</>
-                    )}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
+        </div>
+      </details>
 
       <button type="button" onClick={copySummary} className={btnCls}>
         Copy week summary

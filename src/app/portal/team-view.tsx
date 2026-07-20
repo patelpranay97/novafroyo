@@ -108,12 +108,17 @@ export function TeamView({
 
   async function updatePhone(emp: Employee, input: HTMLInputElement) {
     const raw = input.value.trim();
-    const current = emp.phone ?? "";
-    if (raw === current) return;
+    const current = emp.phone ?? null;
     const normalized = raw === "" ? null : normalizePhone(raw);
     if (raw !== "" && normalized === null) {
-      notify("Phone needs at least 10 digits");
-      input.value = current;
+      notify("Phone needs 10–15 digits (no extensions)");
+      input.value = current ?? "";
+      return;
+    }
+    // Compare normalized-to-stored so a formatted entry ("(312) 555-0142")
+    // doesn't re-save and re-toast on every subsequent blur.
+    if (normalized === current) {
+      input.value = current ?? "";
       return;
     }
     const { error } = await supabase
@@ -124,8 +129,9 @@ export function TeamView({
       // Most likely the scheduling migration (which adds the phone column)
       // hasn't been run yet.
       notify(`Couldn't save phone: ${error.message}`);
-      input.value = current;
+      input.value = current ?? "";
     } else {
+      input.value = normalized ?? "";
       await onChange();
       notify(normalized ? `${emp.name}'s number saved` : "Phone removed");
     }

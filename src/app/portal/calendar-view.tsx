@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   type Employee,
@@ -41,10 +41,26 @@ export function CalendarView({
   onChange,
   notify,
 }: Props) {
-  const today = new Date();
+  // "Today" is state so a tab left open across midnight re-anchors (the
+  // reminders card and today-outline would otherwise go stale).
+  const [today, setToday] = useState(() => new Date());
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    const check = () => {
+      setToday((prev) =>
+        toDateStr(prev) === toDateStr(new Date()) ? prev : new Date(),
+      );
+    };
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
+  }, []);
 
   const todayStr = toDateStr(today);
 
@@ -287,7 +303,7 @@ export function CalendarView({
                       Text
                     </a>
                   ) : (
-                    <span className="shrink-0 text-[10px] uppercase tracking-[0.15em] text-muted">
+                    <span className="max-w-24 text-right text-[10px] uppercase leading-tight tracking-[0.1em] text-muted">
                       Add phone on Team tab
                     </span>
                   )}

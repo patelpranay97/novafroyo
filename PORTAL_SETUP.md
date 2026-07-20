@@ -55,3 +55,11 @@ Add your employees in the Team tab and you're off.
 in the SQL Editor. It adds the `schedule` table and a `phone` column on
 employees. Until it runs, the portal works as before — the Scheduled section
 just shows a reminder to run it.
+
+Already ran an earlier version of that migration? Just run this one line to
+add the duplicate guard:
+
+```sql
+create unique index if not exists schedule_emp_day_idx
+  on public.schedule (employee_id, work_date);
+```

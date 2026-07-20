@@ -144,8 +144,10 @@ export function DayEditor({
       notify("Pick a person and start/end times");
       return;
     }
-    if (schedEnd <= schedStart) {
-      notify("End time must be after start time");
+    // "00:00" as the end means midnight (closing shift); anything else that
+    // isn't after the start is an overnight shift, which isn't supported.
+    if (schedEnd !== "00:00" && schedEnd <= schedStart) {
+      notify("End must be after start — overnight shifts aren't supported (midnight is OK)");
       return;
     }
     setBusy(true);
@@ -155,8 +157,13 @@ export function DayEditor({
       start_time: schedStart,
       end_time: schedEnd,
     });
-    if (error) notify(`Couldn't schedule: ${error.message}`);
-    else {
+    if (error) {
+      notify(
+        error.code === "23505"
+          ? `${emp.name} is already scheduled that day`
+          : `Couldn't schedule: ${error.message}`,
+      );
+    } else {
       await onChange();
       setSchedEmpId("");
     }

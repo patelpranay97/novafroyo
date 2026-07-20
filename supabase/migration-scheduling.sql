@@ -13,6 +13,10 @@ create table public.schedule (
 
 create index schedule_date_idx on public.schedule (work_date);
 
+-- One scheduled entry per person per day, enforced by the database too.
+create unique index if not exists schedule_emp_day_idx
+  on public.schedule (employee_id, work_date);
+
 alter table public.schedule enable row level security;
 create policy "authenticated full access" on public.schedule
   for all to authenticated using (true) with check (true);

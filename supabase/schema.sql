@@ -49,6 +49,8 @@ create table public.schedule (
 );
 
 create index schedule_date_idx on public.schedule (work_date);
+create unique index schedule_emp_day_idx
+  on public.schedule (employee_id, work_date);
 
 -- Lock everything down: only a signed-in user (you) can touch any of it.
 alter table public.employees enable row level security;

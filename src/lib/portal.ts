@@ -176,11 +176,16 @@ export function fmtTimeChip(start: string, end: string): string {
   return `${part(start)}–${part(end)}`;
 }
 
-/** Keep digits and a leading + for use in sms:/tel: links; null if too short. */
+/**
+ * Rebuild a phone number from its digits (keeping a leading + only) for
+ * sms:/tel: links. Null when it can't be a real number: fewer than 10
+ * digits, or more than 15 (E.164 max — also rejects "555-1234 x22" style
+ * extensions that would otherwise merge into a wrong number).
+ */
 export function normalizePhone(raw: string): string | null {
-  const cleaned = raw.replace(/[^+\d]/g, "");
-  const digits = cleaned.replace(/\D/g, "");
-  return digits.length >= 10 ? cleaned : null;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length < 10 || digits.length > 15) return null;
+  return (raw.trim().startsWith("+") ? "+" : "") + digits;
 }
 
 /**

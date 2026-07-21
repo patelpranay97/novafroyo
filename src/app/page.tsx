@@ -149,14 +149,21 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-charcoal/10 bg-cream">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-6 py-8 text-[10px] font-semibold uppercase tracking-[0.4em] text-muted sm:flex-row sm:px-12">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-8 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
             alt="Nova Greek Frozen Yogurt"
             className="h-10 w-auto"
           />
-          <span>© {new Date().getFullYear()} Nova Greek Frozen Yogurt</span>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-muted">
+              © {new Date().getFullYear()} Nova Greek Frozen Yogurt
+            </span>
+            <span className="text-[9px] uppercase tracking-[0.3em] text-muted/60">
+              Nova is a trade name (DBA) of Cone Chicago
+            </span>
+          </div>
         </div>
       </footer>
     </div>

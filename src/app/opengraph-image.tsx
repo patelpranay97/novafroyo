@@ -1,7 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt =
-  "Nova — Greek Frozen Yogurt | Swirling soon in Chicago's West Loop";
+export const alt = "Nova | Greek Frozen Yogurt | West Loop, Chicago";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -82,7 +81,7 @@ export default async function Image() {
               marginTop: 4,
             }}
           >
-            Swirling Soon
+            Now Open · Daily 5–10 PM
           </div>
         </div>
       </div>

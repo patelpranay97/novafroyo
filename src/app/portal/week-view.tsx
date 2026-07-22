@@ -333,7 +333,7 @@ export function WeekView({
                   value={wageTarget}
                   onChange={(e) => updateWageTarget(e.target.value)}
                   aria-label="Target hourly wage"
-                  className="w-16 border border-charcoal/25 bg-cream py-1 pl-5 pr-1 text-right text-sm normal-case tracking-normal outline-none focus:border-charcoal"
+                  className="w-[4.5rem] border border-charcoal/25 bg-cream py-1 pl-5 pr-1.5 text-right text-sm normal-case tracking-normal outline-none focus:border-charcoal sm:w-20"
                 />
               </span>
               /hr

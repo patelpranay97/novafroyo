@@ -266,9 +266,17 @@ export function CalendarView({
       </div>
 
       {/* Shift reminders — prefilled texts for tomorrow's scheduled crew */}
-      {tomorrowCrew.length > 0 && (
+      {scheduleReady && (
         <Card>
           <SectionLabel>Shift reminders</SectionLabel>
+          {tomorrowCrew.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">
+              No one is scheduled for tomorrow ({fmtDayShort(tomorrowStr)})
+              yet. Schedule shifts on the calendar above and one-tap text
+              buttons appear here the day before.
+            </p>
+          ) : (
+            <>
           <p className="mt-1 text-[10px] text-muted/80">
             Tomorrow ({fmtDayShort(tomorrowStr)}) — tap to open a prefilled
             text from your phone.
@@ -311,6 +319,8 @@ export function CalendarView({
               );
             })}
           </div>
+            </>
+          )}
         </Card>
       )}
 

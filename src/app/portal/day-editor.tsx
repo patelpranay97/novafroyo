@@ -178,6 +178,63 @@ export function DayEditor({
     setBusy(false);
   }
 
+  /** "17:00"/"22:00" -> 5; end of "00:00" means midnight. */
+  function scheduledHours(start: string, end: string): number {
+    const toMin = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + (m || 0);
+    };
+    const startMin = toMin(start);
+    const endMin = toMin(end) === 0 ? 24 * 60 : toMin(end);
+    return Math.round(((endMin - startMin) / 60) * 100) / 100;
+  }
+
+  // Convert a scheduled shift into a worked shift: hours from the scheduled
+  // times, rate snapshotted from the employee, schedule row removed.
+  async function markWorked(s: ScheduledShift) {
+    const emp = empById.get(s.employee_id);
+    setBusy(true);
+    const alreadyWorked = shifts.some(
+      (sh) => sh.employee_id === s.employee_id,
+    );
+    if (alreadyWorked) {
+      const { error } = await supabase
+        .from("schedule")
+        .delete()
+        .eq("id", s.id);
+      if (error) notify(`Couldn't update: ${error.message}`);
+      else {
+        await onChange();
+        notify(
+          `${emp?.name ?? "Employee"} already has a worked shift today — removed from schedule`,
+        );
+      }
+      setBusy(false);
+      return;
+    }
+    const hours = scheduledHours(s.start_time, s.end_time);
+    if (!(hours > 0) || hours > 24) {
+      notify("Couldn't read the scheduled times");
+      setBusy(false);
+      return;
+    }
+    const { error } = await supabase.from("shifts").insert({
+      employee_id: s.employee_id,
+      work_date: date,
+      hours,
+      rate: Number(emp?.hourly_rate ?? 0),
+      note: null,
+    });
+    if (error) {
+      notify(`Couldn't log shift: ${error.message}`);
+    } else {
+      await supabase.from("schedule").delete().eq("id", s.id);
+      await onChange();
+      notify(`${emp?.name ?? "Employee"}: ${hours}h moved to worked`);
+    }
+    setBusy(false);
+  }
+
   async function saveTip() {
     setBusy(true);
     // Round to whole cents up front — the DB column is numeric(8,2), and a
@@ -378,6 +435,18 @@ export function DayEditor({
                         <span className="shrink-0 text-xs text-muted">
                           {fmtTime(s.start_time)}–{fmtTime(s.end_time)}
                         </span>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => markWorked(s)}
+                          aria-label={`Mark ${emp?.name ?? "employee"} as worked`}
+                          title="Move to worked"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center border border-charcoal/20 text-muted transition hover:border-[#5a7d4f] hover:text-[#5a7d4f] disabled:opacity-40"
+                        >
+                          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3 w-3" aria-hidden="true">
+                            <path d="M3 8.5l3.5 3.5L13 4.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
                         <button
                           type="button"
                           disabled={busy}

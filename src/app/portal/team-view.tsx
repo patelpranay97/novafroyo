@@ -306,15 +306,15 @@ export function TeamView({
                     /hr
                   </span>
                 </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <input
-                    type="tel"
-                    placeholder="Phone (for reminder texts)"
-                    defaultValue={emp.phone ?? ""}
-                    onBlur={(e) => updatePhone(emp, e.target)}
-                    aria-label={`Phone for ${emp.name}`}
-                    className="min-w-0 flex-1 border border-charcoal/25 bg-cream px-2 py-1 text-sm outline-none placeholder:text-muted/50 focus:border-charcoal"
-                  />
+                <input
+                  type="tel"
+                  placeholder="Phone (for reminder texts)"
+                  defaultValue={emp.phone ?? ""}
+                  onBlur={(e) => updatePhone(emp, e.target)}
+                  aria-label={`Phone for ${emp.name}`}
+                  className="mt-3 w-full border border-charcoal/25 bg-cream px-2 py-1.5 text-sm outline-none placeholder:text-muted/50 focus:border-charcoal"
+                />
+                <div className="mt-2 flex items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => toggleOwner(emp)}

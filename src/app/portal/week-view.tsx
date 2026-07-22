@@ -176,6 +176,10 @@ export function WeekView({
           hours: r.hours,
           wages: r.owed,
           isOwner: r.emp?.is_owner ?? false,
+          target:
+            r.emp?.target_rate != null
+              ? Number(r.emp.target_rate)
+              : undefined,
         })),
         weekTips,
         wageTarget,
@@ -337,14 +341,20 @@ export function WeekView({
           </div>
           <p className="mt-1 text-[10px] leading-relaxed text-muted/80">
             The big number is what each staff member takes home — wages +
-            tips, with tips first guaranteeing {fmtMoney(wageTarget)}/hr.
-            What&apos;s left after that is the owner&apos;s to distribute.
+            tips, with tips first guaranteeing{" "}
+            {rows.some((r) => r.emp?.target_rate != null)
+              ? `each person's target (default ${fmtMoney(wageTarget)}/hr)`
+              : `${fmtMoney(wageTarget)}/hr`}
+            . What&apos;s left after that is the owner&apos;s to distribute.
           </p>
 
           {payout.covered ? (
             <>
               <p className="mt-2 text-sm font-semibold text-[#5a7d4f]">
-                ✓ Staff covered to {fmtMoney(wageTarget)}/hr
+                ✓ Staff covered to{" "}
+                {rows.some((r) => r.emp?.target_rate != null)
+                  ? "their targets"
+                  : `${fmtMoney(wageTarget)}/hr`}
                 {payout.leftover > 0 && (
                   <> · {fmtMoney(payout.leftover)} left over — owner decides</>
                 )}
@@ -423,6 +433,14 @@ export function WeekView({
                         {fmtHours(r.hours)}
                         {p?.effective != null && (
                           <> · ≈{fmtMoney(p.effective)}/hr</>
+                        )}
+                        {r.emp?.target_rate != null && (
+                          <>
+                            {" · "}
+                            <span className="text-[#6d5a8a]">
+                              target {fmtMoney(Number(r.emp.target_rate))}
+                            </span>
+                          </>
                         )}
                       </>
                     )}

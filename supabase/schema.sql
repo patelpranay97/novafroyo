@@ -10,6 +10,7 @@ create table public.employees (
   active boolean not null default true,
   phone text,
   is_owner boolean not null default false,
+  target_rate numeric(8,2),
   created_at timestamptz not null default now()
 );
 

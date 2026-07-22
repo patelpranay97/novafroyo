@@ -70,6 +70,11 @@ then tap "Set owner" on the owner's card in the Team tab. Owners are excluded
 from the wage guarantee — tips top up staff first, and the leftover is the
 owner's to distribute.
 
+**Per-person wage guarantee** (added July 2026): run
+[`supabase/migration-target-rate.sql`](supabase/migration-target-rate.sql)
+once, then set a custom "Wage guarantee" on any Team card (e.g. 13 for
+under-18 staff). Blank means the default target on the Week tab.
+
 **Daily sales + Profit tab** (added July 2026): run
 [`supabase/migration-daily-sales.sql`](supabase/migration-daily-sales.sql)
 once. After close, open the Profit tab, tap the day on its calendar, and

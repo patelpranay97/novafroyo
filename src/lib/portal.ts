@@ -11,6 +11,8 @@ export type Employee = {
   active: boolean;
   phone?: string | null;
   is_owner?: boolean;
+  /** Per-person wage-guarantee override; null = the global default target. */
+  target_rate?: number | null;
   created_at: string;
 };
 
@@ -390,6 +392,8 @@ export type PayoutPerson = {
   hours: number;
   wages: number;
   isOwner?: boolean;
+  /** Per-person guarantee target; falls back to the plan's global target. */
+  target?: number;
 };
 
 export type PayoutPlan = {
@@ -415,7 +419,9 @@ export function planPayout(
   target: number,
 ): PayoutPlan {
   const needs = people.map((p) =>
-    p.isOwner ? 0 : Math.max(0, round2(target * p.hours - p.wages)),
+    p.isOwner
+      ? 0
+      : Math.max(0, round2((p.target ?? target) * p.hours - p.wages)),
   );
   const totalNeed = round2(needs.reduce((a, b) => a + b, 0));
   const poolCents = Math.round(pool * 100);

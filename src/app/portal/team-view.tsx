@@ -137,6 +137,34 @@ export function TeamView({
     }
   }
 
+  async function updateTarget(emp: Employee, input: HTMLInputElement) {
+    const raw = input.value.trim();
+    const current = emp.target_rate != null ? Number(emp.target_rate) : null;
+    const next = raw === "" ? null : Number(raw);
+    if (raw !== "" && (!Number.isFinite(next) || next! < 0)) {
+      notify("Enter a valid hourly target, or leave blank for the default");
+      input.value = current != null ? String(current) : "";
+      return;
+    }
+    if (next === current) return;
+    const { error } = await supabase
+      .from("employees")
+      .update({ target_rate: next })
+      .eq("id", emp.id);
+    if (error) {
+      // Likely the target-rate migration hasn't been run yet.
+      notify(`Couldn't save: ${error.message}`);
+      input.value = current != null ? String(current) : "";
+    } else {
+      await onChange();
+      notify(
+        next != null
+          ? `${emp.name}'s wage guarantee is now ${fmtMoney(next)}/hr`
+          : `${emp.name} uses the default guarantee again`,
+      );
+    }
+  }
+
   async function toggleOwner(emp: Employee) {
     const { error } = await supabase
       .from("employees")
@@ -314,6 +342,36 @@ export function TeamView({
                   aria-label={`Phone for ${emp.name}`}
                   className="mt-3 w-full border border-charcoal/25 bg-cream px-2 py-1.5 text-sm outline-none placeholder:text-muted/50 focus:border-charcoal"
                 />
+                {!emp.is_owner && (
+                  <label className="mt-2 flex items-center justify-between gap-3 text-[11px] text-muted">
+                    <span className="uppercase tracking-[0.15em]">
+                      Wage guarantee
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="relative">
+                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted">
+                          $
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.25"
+                          min="0"
+                          placeholder="default"
+                          defaultValue={
+                            emp.target_rate != null
+                              ? Number(emp.target_rate)
+                              : ""
+                          }
+                          onBlur={(e) => updateTarget(emp, e.target)}
+                          aria-label={`Wage guarantee for ${emp.name}`}
+                          className="w-24 border border-charcoal/25 bg-cream py-1 pl-6 pr-2 text-right text-sm outline-none placeholder:text-muted/50 focus:border-charcoal"
+                        />
+                      </span>
+                      /hr
+                    </span>
+                  </label>
+                )}
                 <div className="mt-2 flex items-center justify-end gap-2">
                   <button
                     type="button"

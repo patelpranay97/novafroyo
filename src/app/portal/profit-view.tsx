@@ -16,6 +16,7 @@ import {
   shiftPay,
   toDateStr,
 } from "@/lib/portal";
+import { projectIncome } from "@/lib/insights";
 import { Card, Modal, SectionLabel, btnSolidCls, inputCls } from "./ui";
 import { ColumnChart } from "./charts";
 
@@ -200,6 +201,17 @@ export function ProfitView({
       landlord: share(totals.landlord),
     };
   }, [totals]);
+
+  // Projections from ALL entered days (not just the viewed month).
+  const projection = useMemo(() => {
+    const entries = sales.map((s) => ({
+      work_date: s.work_date,
+      net: Number(s.net_sales),
+      profit: dayProfit(s, settings, laborByDate.get(s.work_date) ?? 0).profit,
+    }));
+    return projectIncome(entries, today);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sales, settings, laborByDate]);
 
   const cells = useMemo(() => {
     const first = new Date(year, month, 1);
@@ -429,6 +441,65 @@ export function ProfitView({
             {fmtMoney(round2(totals.profit - totals.landlord))}
           </span>
         </p>
+      )}
+
+      {/* Projections — pure weekday averaging, sharpens with every entry */}
+      {sales.length >= 3 && (
+        <Card>
+          <SectionLabel>Projected income</SectionLabel>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Card className="text-center">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">
+                This month · gross
+              </p>
+              <p className="mt-1 font-display text-lg">
+                {fmtMoney(projection.monthGross)}
+              </p>
+            </Card>
+            <Card className="text-center">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">
+                This month · net
+              </p>
+              <p
+                className={`mt-1 font-display text-lg ${projection.monthNet < 0 ? "text-[#a04a4a]" : "text-[#5a7d4f]"}`}
+              >
+                {fmtMoney(projection.monthNet)}
+              </p>
+            </Card>
+            <Card className="text-center">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">
+                Next 90 days · gross
+              </p>
+              <p className="mt-1 font-display text-lg">
+                {fmtMoney(projection.ninetyGross)}
+              </p>
+            </Card>
+            <Card className="text-center">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">
+                Next 90 days · net
+              </p>
+              <p
+                className={`mt-1 font-display text-lg ${projection.ninetyNet < 0 ? "text-[#a04a4a]" : "text-[#5a7d4f]"}`}
+              >
+                {fmtMoney(projection.ninetyNet)}
+              </p>
+            </Card>
+          </div>
+          <p className="mt-2 text-center text-[10px] leading-relaxed text-muted/80">
+            This month = {fmtMoney(projection.monthActualGross)} gross /{" "}
+            {fmtMoney(projection.monthActualNet)} net logged so far +{" "}
+            {projection.monthDaysProjected} estimated day
+            {projection.monthDaysProjected === 1 ? "" : "s"}.
+            <br />
+            Estimates average your last {projection.sampleDays} logged days by
+            day of week. Gross = net sales; net = profit after cups, wages,
+            fees.
+            {projection.zeroWeekdays.length > 0 &&
+              projection.zeroWeekdays.length < 7 && (
+                <> {projection.zeroWeekdays.join("/")} project $0 (no data yet).</>
+              )}
+          </p>
+        </Card>
       )}
 
       {/* Profit calendar */}

@@ -222,6 +222,100 @@ export function employeeStats(
     .sort((a, b) => b.hours - a.hours);
 }
 
+// ---------- Income projections ----------
+// Pure day-of-week averaging over the trailing 28 days of entries (all
+// entries if the shop is younger than that). No modeling, no AI: big
+// Saturdays project as big Saturdays because past Saturdays were big.
+
+export type IncomeEntry = {
+  work_date: string; // YYYY-MM-DD
+  net: number; // net sales (revenue, excl. sales tax)
+  profit: number; // netish profit for the day
+};
+
+export type IncomeProjection = {
+  sampleDays: number;
+  monthGross: number; // actuals so far + weekday-average estimates for the rest
+  monthNet: number;
+  monthActualGross: number;
+  monthActualNet: number;
+  monthDaysProjected: number;
+  ninetyGross: number; // next 90 days, pure forward estimate
+  ninetyNet: number;
+  zeroWeekdays: string[]; // weekday labels with no data (project $0)
+};
+
+export function projectIncome(
+  entries: IncomeEntry[],
+  today: Date,
+): IncomeProjection {
+  const todayStr = toDateStr(today);
+  const cutoff = toDateStr(addDays(today, -28));
+  let window = entries.filter(
+    (e) => e.work_date >= cutoff && e.work_date <= todayStr,
+  );
+  if (window.length === 0) window = entries;
+
+  const wdNet = new Array(7).fill(0);
+  const wdProfit = new Array(7).fill(0);
+  const wdCount = new Array(7).fill(0);
+  for (const e of window) {
+    const w = weekdayIndex(e.work_date);
+    wdNet[w] += Number(e.net);
+    wdProfit[w] += Number(e.profit);
+    wdCount[w]++;
+  }
+  const avgNet = (w: number) => (wdCount[w] ? wdNet[w] / wdCount[w] : 0);
+  const avgProfit = (w: number) => (wdCount[w] ? wdProfit[w] / wdCount[w] : 0);
+
+  const byDate = new Map(entries.map((e) => [e.work_date, e]));
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  let monthGross = 0;
+  let monthNet = 0;
+  let monthActualGross = 0;
+  let monthActualNet = 0;
+  let monthDaysProjected = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = toDateStr(new Date(y, m, d));
+    const e = byDate.get(ds);
+    if (e) {
+      monthGross += Number(e.net);
+      monthNet += Number(e.profit);
+      monthActualGross += Number(e.net);
+      monthActualNet += Number(e.profit);
+    } else if (ds >= todayStr) {
+      // Today (no entry yet) and future days get the weekday estimate;
+      // past days with no entry count as closed ($0).
+      const w = weekdayIndex(ds);
+      monthGross += avgNet(w);
+      monthNet += avgProfit(w);
+      monthDaysProjected++;
+    }
+  }
+
+  let ninetyGross = 0;
+  let ninetyNet = 0;
+  for (let i = 0; i < 90; i++) {
+    const w = (addDays(today, i).getDay() + 6) % 7;
+    ninetyGross += avgNet(w);
+    ninetyNet += avgProfit(w);
+  }
+
+  return {
+    sampleDays: window.length,
+    monthGross: round2(monthGross),
+    monthNet: round2(monthNet),
+    monthActualGross: round2(monthActualGross),
+    monthActualNet: round2(monthActualNet),
+    monthDaysProjected,
+    ninetyGross: round2(ninetyGross),
+    ninetyNet: round2(ninetyNet),
+    zeroWeekdays: WEEKDAY_LABELS.filter((_, i) => wdCount[i] === 0),
+  };
+}
+
 // ---------- Unpaid aging + records ----------
 
 export type UnpaidAging = {

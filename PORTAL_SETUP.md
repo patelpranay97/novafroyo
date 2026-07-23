@@ -70,6 +70,11 @@ then tap "Set owner" on the owner's card in the Team tab. Owners are excluded
 from the wage guarantee — tips top up staff first, and the leftover is the
 owner's to distribute.
 
+**Split days / multiple shifts per person** (added July 2026): run
+[`supabase/migration-multi-shift.sql`](supabase/migration-multi-shift.sql)
+once. The same person can then be scheduled more than once per day (e.g.
+morning prep + evening shift); overlapping times are still rejected.
+
 **Per-person wage guarantee** (added July 2026): run
 [`supabase/migration-target-rate.sql`](supabase/migration-target-rate.sql)
 once, then set a custom "Wage guarantee" on any Team card (e.g. 13 for

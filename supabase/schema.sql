@@ -51,8 +51,10 @@ create table public.schedule (
 );
 
 create index schedule_date_idx on public.schedule (work_date);
-create unique index schedule_emp_day_idx
-  on public.schedule (employee_id, work_date);
+-- Multiple blocks per person per day are allowed (prep + evening);
+-- identical start times are not (double-tap guard).
+create unique index schedule_emp_day_start_idx
+  on public.schedule (employee_id, work_date, start_time);
 
 -- Daily sales from the end-of-day Square email, plus unit-cost settings.
 create table public.daily_sales (

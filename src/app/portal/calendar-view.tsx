@@ -97,12 +97,23 @@ export function CalendarView({
     return map;
   }, [schedule]);
 
-  // Tomorrow's scheduled crew, for the reminder texts.
+  // Tomorrow's scheduled crew, for the reminder texts — grouped per person
+  // so someone with a prep block and an evening block gets ONE text listing
+  // both time ranges.
   const tomorrowStr = toDateStr(addDays(today, 1));
   const tomorrowCrew = useMemo(
     () => scheduleByDate.get(tomorrowStr) ?? [],
     [scheduleByDate, tomorrowStr],
   );
+  const tomorrowByEmp = useMemo(() => {
+    const map = new Map<string, ScheduledShift[]>();
+    for (const s of tomorrowCrew) {
+      const arr = map.get(s.employee_id) ?? [];
+      arr.push(s);
+      map.set(s.employee_id, arr);
+    }
+    return [...map.entries()];
+  }, [tomorrowCrew]);
 
   // Chip label per employee: first name, plus a last initial only when another
   // employee shares that first name (so two "Sam"s stay distinguishable).
@@ -282,14 +293,16 @@ export function CalendarView({
             text from your phone.
           </p>
           <div className="mt-3 flex flex-col gap-2">
-            {tomorrowCrew.map((s) => {
-              const emp = empById.get(s.employee_id);
+            {tomorrowByEmp.map(([empId, blocks]) => {
+              const emp = empById.get(empId);
               const phone = emp?.phone ? normalizePhone(emp.phone) : null;
-              const timeRange = `${fmtTime(s.start_time)}–${fmtTime(s.end_time)}`;
-              const body = `Hi ${emp?.name?.split(" ")[0] ?? "there"}! Reminder: you're on at Nova tomorrow (${fmtDayShort(s.work_date)}), ${timeRange}. See you then!`;
+              const timeRange = blocks
+                .map((b) => `${fmtTime(b.start_time)}–${fmtTime(b.end_time)}`)
+                .join(" & ");
+              const body = `Hi ${emp?.name?.split(" ")[0] ?? "there"}! Reminder: you're on at Nova tomorrow (${fmtDayShort(tomorrowStr)}), ${timeRange}. See you then!`;
               return (
                 <div
-                  key={s.id}
+                  key={empId}
                   className="flex items-center justify-between gap-2 text-sm"
                 >
                   <span className="flex min-w-0 flex-1 items-center gap-2">

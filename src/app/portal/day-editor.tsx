@@ -137,6 +137,16 @@ export function DayEditor({
     }
   }
 
+  /** Minutes since midnight; as an END time, "00:00" means midnight (1440). */
+  function timeToMin(t: string): number {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + (m || 0);
+  }
+  function endToMin(t: string): number {
+    const v = timeToMin(t);
+    return v === 0 ? 24 * 60 : v;
+  }
+
   async function addScheduled(e: React.FormEvent) {
     e.preventDefault();
     const emp = empById.get(schedEmpId);
@@ -150,6 +160,18 @@ export function DayEditor({
       notify("End must be after start — overnight shifts aren't supported (midnight is OK)");
       return;
     }
+    // Multiple blocks per day are fine (prep + evening); overlapping ones
+    // are always a mistake.
+    const overlaps = scheduled.some(
+      (x) =>
+        x.employee_id === emp.id &&
+        timeToMin(schedStart) < endToMin(x.end_time) &&
+        endToMin(schedEnd) > timeToMin(x.start_time),
+    );
+    if (overlaps) {
+      notify(`${emp.name} is already scheduled during those hours`);
+      return;
+    }
     setBusy(true);
     const { error } = await supabase.from("schedule").insert({
       employee_id: emp.id,
@@ -160,7 +182,7 @@ export function DayEditor({
     if (error) {
       notify(
         error.code === "23505"
-          ? `${emp.name} is already scheduled that day`
+          ? `${emp.name} already has a shift starting at that time`
           : `Couldn't schedule: ${error.message}`,
       );
     } else {
@@ -190,31 +212,44 @@ export function DayEditor({
   }
 
   // Convert a scheduled shift into a worked shift: hours from the scheduled
-  // times, rate snapshotted from the employee, schedule row removed.
+  // times, rate snapshotted from the employee, schedule row removed. When
+  // the person already worked today (e.g. a converted morning prep block),
+  // the hours are ADDED to that shift instead of creating a second one.
   async function markWorked(s: ScheduledShift) {
     const emp = empById.get(s.employee_id);
     setBusy(true);
-    const alreadyWorked = shifts.some(
-      (sh) => sh.employee_id === s.employee_id,
-    );
-    if (alreadyWorked) {
-      const { error } = await supabase
-        .from("schedule")
-        .delete()
-        .eq("id", s.id);
-      if (error) notify(`Couldn't update: ${error.message}`);
-      else {
-        await onChange();
-        notify(
-          `${emp?.name ?? "Employee"} already has a worked shift today — removed from schedule`,
-        );
-      }
-      setBusy(false);
-      return;
-    }
     const hours = scheduledHours(s.start_time, s.end_time);
     if (!(hours > 0) || hours > 24) {
       notify("Couldn't read the scheduled times");
+      setBusy(false);
+      return;
+    }
+    const existing = shifts.find((sh) => sh.employee_id === s.employee_id);
+    if (existing) {
+      const newHours =
+        Math.round((Number(existing.hours) + hours) * 100) / 100;
+      if (newHours > 24) {
+        notify("That would exceed 24h in a day — adjust the hours manually");
+        setBusy(false);
+        return;
+      }
+      // Adding hours changes what's owed — reopen a paid shift as unpaid.
+      const wasPaid = existing.paid_at != null;
+      const patch: { hours: number; paid_at?: null } = { hours: newHours };
+      if (wasPaid) patch.paid_at = null;
+      const { error } = await supabase
+        .from("shifts")
+        .update(patch)
+        .eq("id", existing.id);
+      if (error) {
+        notify(`Couldn't update: ${error.message}`);
+      } else {
+        await supabase.from("schedule").delete().eq("id", s.id);
+        await onChange();
+        notify(
+          `${emp?.name ?? "Employee"}: +${hours}h added (now ${newHours}h)${wasPaid ? " — reopened as unpaid" : ""}`,
+        );
+      }
       setBusy(false);
       return;
     }
@@ -303,6 +338,10 @@ export function DayEditor({
                       )}
                     </span>
                     <input
+                      // Re-key on the stored value so an external update
+                      // (e.g. a converted schedule block adding hours)
+                      // re-syncs this uncontrolled field's display.
+                      key={`${s.id}-${Number(s.hours)}`}
                       type="number"
                       inputMode="decimal"
                       step="0.25"
@@ -464,10 +503,9 @@ export function DayEditor({
                 </div>
               )}
               {(() => {
-                const onDay = new Set(scheduled.map((s) => s.employee_id));
-                const schedulable = employees.filter(
-                  (e) => e.active && !onDay.has(e.id),
-                );
+                // Anyone active can be scheduled again — a person may have a
+                // morning prep block and an evening shift the same day.
+                const schedulable = employees.filter((e) => e.active);
                 if (schedulable.length === 0) return null;
                 return (
                   <form

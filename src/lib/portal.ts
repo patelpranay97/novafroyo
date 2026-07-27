@@ -32,6 +32,9 @@ export type Shift = {
   work_date: string; // YYYY-MM-DD
   hours: number;
   rate: number;
+  /** Optional exact range; hours is derived from it when present. */
+  start_time?: string | null; // HH:MM or HH:MM:SS
+  end_time?: string | null;
   note: string | null;
   paid_at: string | null;
   created_at: string;

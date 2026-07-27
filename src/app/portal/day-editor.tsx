@@ -9,6 +9,7 @@ import {
   type TipDay,
   fmtMoney,
   fmtTime,
+  fmtTimeChip,
   parseDateStr,
 } from "@/lib/portal";
 import { Modal, SectionLabel, btnSolidCls, inputCls } from "./ui";
@@ -26,8 +27,6 @@ type Props = {
   onClose: () => void;
 };
 
-const QUICK_HOURS = [4, 5, 6, 8];
-
 export function DayEditor({
   supabase,
   date,
@@ -41,7 +40,8 @@ export function DayEditor({
   onClose,
 }: Props) {
   const [empId, setEmpId] = useState("");
-  const [hours, setHours] = useState("");
+  const [workedStart, setWorkedStart] = useState("17:00");
+  const [workedEnd, setWorkedEnd] = useState("22:00");
   const [note, setNote] = useState("");
   const [tipAmount, setTipAmount] = useState(
     tip ? String(Number(tip.amount)) : "",
@@ -65,36 +65,91 @@ export function DayEditor({
     [employees],
   );
 
-  // Active employees who don't already have a shift this day
-  const addable = useMemo(() => {
-    const onDay = new Set(shifts.map((s) => s.employee_id));
-    return employees.filter((e) => e.active && !onDay.has(e.id));
-  }, [employees, shifts]);
+  // Anyone active can work multiple separate blocks in a day.
+  const addable = useMemo(
+    () => employees.filter((e) => e.active),
+    [employees],
+  );
 
   const tipNum = Number(tipAmount);
-  const workedCount = shifts.length;
+  // People, not shift rows — someone with two blocks counts once.
+  const workedCount = new Set(shifts.map((s) => s.employee_id)).size;
+
+  /** Overlap vs the person's existing TIMED worked shifts. */
+  function workedOverlaps(employeeId: string, start: string, end: string) {
+    return shifts.some(
+      (sh) =>
+        sh.employee_id === employeeId &&
+        sh.start_time &&
+        sh.end_time &&
+        timeToMin(start) < endToMin(sh.end_time) &&
+        endToMin(end) > timeToMin(sh.start_time),
+    );
+  }
+
+  /** Insert a worked shift; falls back to hours-only if the times
+   *  migration hasn't been run yet (missing-column error). */
+  async function insertWorked(
+    employeeId: string,
+    hoursVal: number,
+    start: string | null,
+    end: string | null,
+    noteVal: string | null,
+  ) {
+    const emp = empById.get(employeeId);
+    const base: Record<string, unknown> = {
+      employee_id: employeeId,
+      work_date: date,
+      hours: hoursVal,
+      rate: Number(emp?.hourly_rate ?? 0),
+      note: noteVal,
+    };
+    const withTimes: Record<string, unknown> =
+      start && end ? { ...base, start_time: start, end_time: end } : base;
+    let { error } = await supabase.from("shifts").insert(withTimes);
+    if (error && error.code === "PGRST204" && start && end) {
+      ({ error } = await supabase.from("shifts").insert(base));
+      if (!error) {
+        notify(
+          "Saved hours only — run migration-shift-times.sql to store exact times",
+        );
+      }
+    }
+    return error;
+  }
 
   async function addShift(e: React.FormEvent) {
     e.preventDefault();
     const emp = empById.get(empId);
-    const h = Number(hours);
-    if (!emp || !Number.isFinite(h) || h <= 0 || h > 24) {
-      notify("Pick a person and hours between 0 and 24");
+    if (!emp || !workedStart || !workedEnd) {
+      notify("Pick a person and start/end times");
+      return;
+    }
+    if (workedEnd !== "00:00" && workedEnd <= workedStart) {
+      notify("End must be after start — overnight shifts aren't supported (midnight is OK)");
+      return;
+    }
+    if (workedOverlaps(emp.id, workedStart, workedEnd)) {
+      notify(`${emp.name} already worked during those hours`);
+      return;
+    }
+    const h = scheduledHours(workedStart, workedEnd);
+    if (!(h > 0) || h > 24) {
+      notify("Couldn't read those times");
       return;
     }
     setBusy(true);
-    const { error } = await supabase.from("shifts").insert({
-      employee_id: emp.id,
-      work_date: date,
-      hours: h,
-      rate: Number(emp.hourly_rate),
-      note: note.trim() || null,
-    });
+    const error = await insertWorked(
+      emp.id,
+      h,
+      workedStart,
+      workedEnd,
+      note.trim() || null,
+    );
     if (error) notify(`Couldn't add shift: ${error.message}`);
     else {
       await onChange();
       setEmpId("");
-      setHours("");
       setNote("");
     }
     setBusy(false);
@@ -211,61 +266,34 @@ export function DayEditor({
     return Math.round(((endMin - startMin) / 60) * 100) / 100;
   }
 
-  // Convert a scheduled shift into a worked shift: hours from the scheduled
-  // times, rate snapshotted from the employee, schedule row removed. When
-  // the person already worked today (e.g. a converted morning prep block),
-  // the hours are ADDED to that shift instead of creating a second one.
+  // Convert a scheduled shift into a worked shift: the exact times carry
+  // over, hours derive from them, rate snapshots from the employee, and the
+  // schedule row is removed. Multiple blocks become multiple worked shifts.
   async function markWorked(s: ScheduledShift) {
     const emp = empById.get(s.employee_id);
-    setBusy(true);
     const hours = scheduledHours(s.start_time, s.end_time);
     if (!(hours > 0) || hours > 24) {
       notify("Couldn't read the scheduled times");
-      setBusy(false);
       return;
     }
-    const existing = shifts.find((sh) => sh.employee_id === s.employee_id);
-    if (existing) {
-      const newHours =
-        Math.round((Number(existing.hours) + hours) * 100) / 100;
-      if (newHours > 24) {
-        notify("That would exceed 24h in a day — adjust the hours manually");
-        setBusy(false);
-        return;
-      }
-      // Adding hours changes what's owed — reopen a paid shift as unpaid.
-      const wasPaid = existing.paid_at != null;
-      const patch: { hours: number; paid_at?: null } = { hours: newHours };
-      if (wasPaid) patch.paid_at = null;
-      const { error } = await supabase
-        .from("shifts")
-        .update(patch)
-        .eq("id", existing.id);
-      if (error) {
-        notify(`Couldn't update: ${error.message}`);
-      } else {
-        await supabase.from("schedule").delete().eq("id", s.id);
-        await onChange();
-        notify(
-          `${emp?.name ?? "Employee"}: +${hours}h added (now ${newHours}h)${wasPaid ? " — reopened as unpaid" : ""}`,
-        );
-      }
-      setBusy(false);
+    const start = s.start_time.slice(0, 5);
+    const end = s.end_time.slice(0, 5);
+    if (workedOverlaps(s.employee_id, start, end)) {
+      notify(
+        `${emp?.name ?? "Employee"} already has a worked shift during those hours`,
+      );
       return;
     }
-    const { error } = await supabase.from("shifts").insert({
-      employee_id: s.employee_id,
-      work_date: date,
-      hours,
-      rate: Number(emp?.hourly_rate ?? 0),
-      note: null,
-    });
+    setBusy(true);
+    const error = await insertWorked(s.employee_id, hours, start, end, null);
     if (error) {
       notify(`Couldn't log shift: ${error.message}`);
     } else {
       await supabase.from("schedule").delete().eq("id", s.id);
       await onChange();
-      notify(`${emp?.name ?? "Employee"}: ${hours}h moved to worked`);
+      notify(
+        `${emp?.name ?? "Employee"}: ${fmtTimeChip(start, end)} (${hours}h) moved to worked`,
+      );
     }
     setBusy(false);
   }
@@ -337,22 +365,32 @@ export function DayEditor({
                         </span>
                       )}
                     </span>
-                    <input
-                      // Re-key on the stored value so an external update
-                      // (e.g. a converted schedule block adding hours)
-                      // re-syncs this uncontrolled field's display.
-                      key={`${s.id}-${Number(s.hours)}`}
-                      type="number"
-                      inputMode="decimal"
-                      step="0.25"
-                      min="0.25"
-                      max="24"
-                      defaultValue={Number(s.hours)}
-                      onBlur={(e) => updateHours(s, e.target)}
-                      aria-label={`Hours for ${emp?.name ?? "employee"}`}
-                      className="w-16 border border-charcoal/25 bg-cream px-2 py-1 text-right text-sm outline-none focus:border-charcoal"
-                    />
-                    <span className="text-xs text-muted">h</span>
+                    {s.start_time && s.end_time ? (
+                      <span className="shrink-0 text-xs text-muted">
+                        {fmtTime(s.start_time)}–{fmtTime(s.end_time)}{" "}
+                        <span className="font-semibold text-charcoal">
+                          {Number(s.hours)}h
+                        </span>
+                      </span>
+                    ) : (
+                      <>
+                        <input
+                          // Re-key on the stored value so an external update
+                          // re-syncs this uncontrolled field's display.
+                          key={`${s.id}-${Number(s.hours)}`}
+                          type="number"
+                          inputMode="decimal"
+                          step="0.25"
+                          min="0.25"
+                          max="24"
+                          defaultValue={Number(s.hours)}
+                          onBlur={(e) => updateHours(s, e.target)}
+                          aria-label={`Hours for ${emp?.name ?? "employee"}`}
+                          className="w-16 border border-charcoal/25 bg-cream px-2 py-1 text-right text-sm outline-none focus:border-charcoal"
+                        />
+                        <span className="text-xs text-muted">h</span>
+                      </>
+                    )}
                     <button
                       type="button"
                       disabled={busy}
@@ -386,33 +424,22 @@ export function DayEditor({
                   </option>
                 ))}
               </select>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.25"
-                  min="0.25"
-                  max="24"
-                  placeholder="Hours"
-                  value={hours}
-                  onChange={(e) => setHours(e.target.value)}
-                  aria-label="Hours"
-                  className="w-24 shrink-0 rounded-none border border-charcoal/25 bg-cream-soft px-3 py-2 text-sm text-charcoal outline-none transition placeholder:text-muted/60 focus:border-charcoal"
+                  type="time"
+                  value={workedStart}
+                  onChange={(e) => setWorkedStart(e.target.value)}
+                  aria-label="Worked start time"
+                  className={`${inputCls} flex-1`}
                 />
-                {QUICK_HOURS.map((h) => (
-                  <button
-                    key={h}
-                    type="button"
-                    onClick={() => setHours(String(h))}
-                    className={`flex-1 border px-2 py-2 text-[11px] transition ${
-                      hours === String(h)
-                        ? "border-charcoal bg-charcoal text-cream"
-                        : "border-charcoal/20 text-muted hover:border-charcoal hover:text-charcoal"
-                    }`}
-                  >
-                    {h}h
-                  </button>
-                ))}
+                <span className="text-xs text-muted">to</span>
+                <input
+                  type="time"
+                  value={workedEnd}
+                  onChange={(e) => setWorkedEnd(e.target.value)}
+                  aria-label="Worked end time"
+                  className={`${inputCls} flex-1`}
+                />
               </div>
               <input
                 type="text"
@@ -423,7 +450,7 @@ export function DayEditor({
               />
               <button
                 type="submit"
-                disabled={busy || !empId || !hours}
+                disabled={busy || !empId}
                 className={btnSolidCls}
               >
                 Add shift

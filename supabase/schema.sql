@@ -23,6 +23,8 @@ create table public.shifts (
   work_date date not null,
   hours numeric(5,2) not null check (hours > 0 and hours <= 24),
   rate numeric(8,2) not null check (rate >= 0),
+  start_time time,
+  end_time time,
   note text,
   paid_at timestamptz,
   created_at timestamptz not null default now()

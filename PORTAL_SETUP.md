@@ -70,6 +70,13 @@ then tap "Set owner" on the owner's card in the Team tab. Owners are excluded
 from the wage guarantee — tips top up staff first, and the leftover is the
 owner's to distribute.
 
+**Exact worked times** (added July 2026): run
+[`supabase/migration-shift-times.sql`](supabase/migration-shift-times.sql)
+once. Worked shifts are then logged with start/end times (hours derived
+automatically); the same person can work multiple blocks per day, and
+converting a scheduled block carries its times over. Older hour-only
+entries keep working.
+
 **Split days / multiple shifts per person** (added July 2026): run
 [`supabase/migration-multi-shift.sql`](supabase/migration-multi-shift.sql)
 once. The same person can then be scheduled more than once per day (e.g.

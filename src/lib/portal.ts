@@ -59,6 +59,20 @@ export type DailySales = {
   updated_at: string;
 };
 
+export type InventoryDay = {
+  work_date: string; // YYYY-MM-DD
+  batches_made: number;
+  batches_left: number;
+  kefir: number;
+  yogurt: number;
+  milk: number;
+  stabilizer: number;
+  milk_powder: number;
+  sugar: number;
+  note: string | null;
+  updated_at: string;
+};
+
 export type Settings = {
   id: number;
   mini_cost: number;

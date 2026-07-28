@@ -70,6 +70,12 @@ then tap "Set owner" on the owner's card in the Team tab. Owners are excluded
 from the wage guarantee — tips top up staff first, and the leftover is the
 owner's to distribute.
 
+**Stock tracking** (added July 2026): run
+[`supabase/migration-inventory.sql`](supabase/migration-inventory.sql) once.
+The Stock tab then tracks batches made/left per night and whole-unit counts
+for kefir, yogurt, milk, stabilizer, milk powder, and sugar — counts prefill
+from the previous night so entry is a few taps.
+
 **Exact worked times** (added July 2026): run
 [`supabase/migration-shift-times.sql`](supabase/migration-shift-times.sql)
 once. Worked shifts are then logged with start/end times (hours derived

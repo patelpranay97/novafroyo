@@ -8,6 +8,7 @@ import {
   DEFAULT_SETTINGS,
   type DailySales,
   type Employee,
+  type InventoryDay,
   type ScheduledShift,
   type Settings,
   type Shift,
@@ -20,13 +21,15 @@ import { CalendarView } from "./calendar-view";
 import { TeamView } from "./team-view";
 import { InsightsView } from "./insights-view";
 import { ProfitView } from "./profit-view";
+import { StockView } from "./stock-view";
 
-type Tab = "week" | "calendar" | "profit" | "team" | "insights";
+type Tab = "week" | "calendar" | "profit" | "stock" | "team" | "insights";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "week", label: "Week" },
   { id: "calendar", label: "Calendar" },
   { id: "profit", label: "Profit" },
+  { id: "stock", label: "Stock" },
   { id: "team", label: "Team" },
   { id: "insights", label: "Insights" },
 ];
@@ -45,6 +48,8 @@ export default function PortalPage() {
   const [sales, setSales] = useState<DailySales[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [salesReady, setSalesReady] = useState(true);
+  const [inventory, setInventory] = useState<InventoryDay[]>([]);
+  const [invReady, setInvReady] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -67,13 +72,14 @@ export default function PortalPage() {
 
   const refresh = useCallback(async () => {
     if (!supabase) return;
-    const [emp, shf, tps, sch, sls, stg] = await Promise.all([
+    const [emp, shf, tps, sch, sls, stg, inv] = await Promise.all([
       supabase.from("employees").select("*").order("name"),
       supabase.from("shifts").select("*").order("work_date"),
       supabase.from("tips").select("*").order("work_date"),
       supabase.from("schedule").select("*").order("work_date"),
       supabase.from("daily_sales").select("*").order("work_date"),
       supabase.from("settings").select("*").order("id"),
+      supabase.from("inventory").select("*").order("work_date"),
     ]);
     const err = emp.error ?? shf.error ?? tps.error;
     if (err) {
@@ -94,6 +100,9 @@ export default function PortalPage() {
       stg.error ? DEFAULT_SETTINGS : ((stg.data?.[0] as Settings) ?? DEFAULT_SETTINGS),
     );
     setSalesReady(!sls.error && !stg.error);
+    // Stock tracking is non-fatal the same way (migration-inventory.sql).
+    setInventory(inv.error ? [] : ((inv.data as InventoryDay[]) ?? []));
+    setInvReady(!inv.error);
     setLoadError(null);
     setLoaded(true);
   }, [supabase, notify]);
@@ -214,6 +223,15 @@ export default function PortalPage() {
                 sales={sales}
                 settings={settings}
                 salesReady={salesReady}
+                onChange={refresh}
+                notify={notify}
+              />
+            )}
+            {tab === "stock" && (
+              <StockView
+                supabase={supabase}
+                inventory={inventory}
+                invReady={invReady}
                 onChange={refresh}
                 notify={notify}
               />

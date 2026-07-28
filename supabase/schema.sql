@@ -83,6 +83,21 @@ create table public.settings (
 
 insert into public.settings (id) values (1);
 
+-- Nightly stock counts, in whole units.
+create table public.inventory (
+  work_date date primary key,
+  batches_made integer not null default 0 check (batches_made >= 0),
+  batches_left integer not null default 0 check (batches_left >= 0),
+  kefir integer not null default 0 check (kefir >= 0),
+  yogurt integer not null default 0 check (yogurt >= 0),
+  milk integer not null default 0 check (milk >= 0),
+  stabilizer integer not null default 0 check (stabilizer >= 0),
+  milk_powder integer not null default 0 check (milk_powder >= 0),
+  sugar integer not null default 0 check (sugar >= 0),
+  note text,
+  updated_at timestamptz not null default now()
+);
+
 -- Lock everything down: only a signed-in user (you) can touch any of it.
 alter table public.employees enable row level security;
 alter table public.shifts enable row level security;
@@ -90,6 +105,7 @@ alter table public.tips enable row level security;
 alter table public.schedule enable row level security;
 alter table public.daily_sales enable row level security;
 alter table public.settings enable row level security;
+alter table public.inventory enable row level security;
 
 create policy "authenticated full access" on public.employees
   for all to authenticated using (true) with check (true);
@@ -102,4 +118,6 @@ create policy "authenticated full access" on public.schedule
 create policy "authenticated full access" on public.daily_sales
   for all to authenticated using (true) with check (true);
 create policy "authenticated full access" on public.settings
+  for all to authenticated using (true) with check (true);
+create policy "authenticated full access" on public.inventory
   for all to authenticated using (true) with check (true);

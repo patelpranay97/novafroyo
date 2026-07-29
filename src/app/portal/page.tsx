@@ -144,13 +144,13 @@ export default function PortalPage() {
       </header>
 
       {/* Tabs */}
-      <nav className="sticky top-0 z-40 flex border-b border-charcoal/10 bg-cream">
+      <nav className="sticky top-0 z-40 flex justify-between border-b border-charcoal/10 bg-cream px-3 sm:justify-center sm:gap-10 sm:px-8">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={`flex-1 whitespace-nowrap px-1 py-3 text-[9px] font-semibold uppercase tracking-[0.18em] transition sm:px-2 sm:text-[11px] sm:tracking-[0.3em] ${
+            className={`whitespace-nowrap px-0.5 py-3 text-[9px] font-semibold uppercase tracking-[0.18em] transition sm:text-[11px] sm:tracking-[0.3em] ${
               tab === t.id
                 ? "border-b-2 border-charcoal text-charcoal"
                 : "border-b-2 border-transparent text-muted hover:text-charcoal"

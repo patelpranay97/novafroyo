@@ -40,9 +40,9 @@ const MONTH_NAMES = [
 const DAY_HEADERS = ["M", "T", "W", "T", "F", "S", "S"];
 
 const COST_FIELDS = [
-  ["mini_cost", "Mini (4oz) cost"],
-  ["regular_cost", "Regular (6oz) cost"],
-  ["super_cost", "Super (8oz) cost"],
+  ["mini_cost", "Mini (6oz) cost"],
+  ["regular_cost", "Regular (8oz) cost"],
+  ["super_cost", "Super (10oz) cost"],
   ["topping_cost", "Extra topping cost"],
   ["landlord_pct", "Landlord share %"],
 ] as const;

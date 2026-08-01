@@ -7,6 +7,7 @@ import {
   type DayProfit,
   type Settings,
   type Shift,
+  type TipDay,
   dayProfit,
   fmtDayShort,
   fmtMoney,
@@ -26,6 +27,7 @@ const HUE = "#2d4f9e";
 type Props = {
   supabase: SupabaseClient;
   shifts: Shift[];
+  tips: TipDay[];
   sales: DailySales[];
   settings: Settings;
   salesReady: boolean;
@@ -98,6 +100,7 @@ function fmtCompact(v: number): string {
 export function ProfitView({
   supabase,
   shifts,
+  tips,
   sales,
   settings,
   salesReady,
@@ -152,6 +155,16 @@ export function ProfitView({
         .filter((s) => s.work_date.startsWith(prefix))
         .map((s) => ({ sales: s, p: profitByDate.get(s.work_date)! })),
     [sales, prefix, profitByDate],
+  );
+
+  const monthTips = useMemo(
+    () =>
+      round2(
+        tips
+          .filter((t) => t.work_date.startsWith(prefix))
+          .reduce((a, t) => a + Number(t.amount), 0),
+      ),
+    [tips, prefix],
   );
 
   const totals = useMemo(() => {
@@ -408,7 +421,7 @@ export function ProfitView({
         </button>
       </div>
 
-      {/* Month tiles */}
+      {/* Month tiles + a slim strip for the money-to-account-for trio */}
       <div className="grid grid-cols-2 gap-2">
         <Card className="text-center">
           <SectionLabel>Net sales</SectionLabel>
@@ -422,19 +435,35 @@ export function ProfitView({
             {fmtMoney(totals.profit)}
           </p>
         </Card>
-        <Card className="text-center">
-          <SectionLabel>Tax to set aside</SectionLabel>
-          <p className="mt-1 font-display text-xl text-[#2d4f9e]">
-            {fmtMoney(totals.tax)}
-          </p>
-        </Card>
-        <Card className="text-center">
-          <SectionLabel>Card fees</SectionLabel>
-          <p className="mt-1 font-display text-xl text-[#a04a4a]">
-            {fmtMoney(totals.fees)}
-          </p>
-        </Card>
       </div>
+      <Card className="!py-2.5">
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+              Tax to set aside
+            </p>
+            <p className="mt-0.5 font-display text-base text-[#2d4f9e]">
+              {fmtMoney(totals.tax)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+              Card fees
+            </p>
+            <p className="mt-0.5 font-display text-base text-[#a04a4a]">
+              {fmtMoney(totals.fees)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+              Tips
+            </p>
+            <p className="mt-0.5 font-display text-base text-[#5a7d4f]">
+              {fmtMoney(monthTips)}
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {monthRows.length > 0 && (
         <p className="text-center text-[10px] leading-relaxed text-muted/80">

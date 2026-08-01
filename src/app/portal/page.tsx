@@ -220,6 +220,7 @@ export default function PortalPage() {
               <ProfitView
                 supabase={supabase}
                 shifts={shifts}
+                tips={tips}
                 sales={sales}
                 settings={settings}
                 salesReady={salesReady}

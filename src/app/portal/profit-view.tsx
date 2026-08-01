@@ -409,7 +409,7 @@ export function ProfitView({
       </div>
 
       {/* Month tiles */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Card className="text-center">
           <SectionLabel>Net sales</SectionLabel>
           <p className="mt-1 font-display text-xl">{fmtMoney(totals.net)}</p>
@@ -426,6 +426,12 @@ export function ProfitView({
           <SectionLabel>Tax to set aside</SectionLabel>
           <p className="mt-1 font-display text-xl text-[#2d4f9e]">
             {fmtMoney(totals.tax)}
+          </p>
+        </Card>
+        <Card className="text-center">
+          <SectionLabel>Card fees</SectionLabel>
+          <p className="mt-1 font-display text-xl text-[#a04a4a]">
+            {fmtMoney(totals.fees)}
           </p>
         </Card>
       </div>

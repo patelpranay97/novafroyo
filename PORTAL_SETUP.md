@@ -48,6 +48,22 @@ Production (and Preview), then **redeploy**.
 Visit `novafroyo.com/portal`, sign in with the email + password from step 3.
 Add your employees in the Team tab and you're off.
 
+## Security
+
+Three things keep the portal private. All three should be true:
+
+1. **Owner-only database access** — run
+   [`supabase/migration-lockdown.sql`](supabase/migration-lockdown.sql) once
+   (put your login email on the marked line first). Access is then limited to
+   an explicit allowlist, so even an account someone else creates sees nothing.
+2. **Signups off** — Authentication → Sign In / Up → turn OFF "Allow new users
+   to sign up". Without this, strangers can create accounts freely.
+3. **A strong, unique password** on the owner account, since that password is
+   the only thing between the internet and the data.
+
+The `/portal` URL itself is reachable by design (it's the login screen), but it
+contains no data, is `noindex, nofollow`, and is disallowed in robots.txt.
+
 ## Updates
 
 **Scheduling + reminder texts** (added July 2026): run

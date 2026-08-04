@@ -74,6 +74,7 @@ export default function Home() {
         href="https://www.instagram.com/novafroyo/"
         target="_blank"
         rel="noopener noreferrer"
+        aria-label="Follow Nova on Instagram"
         className="group -mt-5 mr-6 flex flex-col items-end self-end sm:-mt-6 sm:mr-12"
       >
         <svg
@@ -102,10 +103,6 @@ export default function Home() {
             strokeLinejoin="round"
           />
         </svg>
-        {/* same right margin as the arrow so the words sit under it */}
-        <span className="mr-11 font-script text-[13px] italic leading-tight text-muted transition group-hover:text-charcoal sm:text-[15px]">
-          follow us
-        </span>
       </a>
 
       {/* Hero */}

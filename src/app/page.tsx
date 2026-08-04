@@ -114,7 +114,7 @@ export default function Home() {
       {/* Menu CTA */}
       <div className="flex justify-center pb-16 pt-4">
         <a
-          href="/nova-menu.pdf"
+          href="/Nova%20Menu%20Summer%202026.pdf"
           target="_blank"
           rel="noopener noreferrer"
           className="group flex items-center gap-3 border border-charcoal/30 px-8 py-3 text-[11px] font-semibold uppercase tracking-[0.45em] text-charcoal transition hover:bg-charcoal hover:text-cream"

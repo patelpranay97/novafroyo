@@ -106,7 +106,7 @@ const localBusinessJsonLd = {
     opens: "17:00",
     closes: "22:00",
   },
-  hasMenu: "https://www.novafroyo.com/nova-menu.pdf",
+  hasMenu: "https://www.novafroyo.com/Nova%20Menu%20Summer%202026.pdf",
   sameAs: [
     "https://www.instagram.com/novafroyo/",
     "https://www.tiktok.com/@novafroyo",

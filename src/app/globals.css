@@ -172,3 +172,22 @@ body {
     animation: none;
   }
 }
+
+/* Follow loop — hand-drawn arrow that redraws itself, pointing at the socials */
+@keyframes follow-draw {
+  0% { stroke-dashoffset: 100; opacity: 0; }
+  8% { opacity: 1; }
+  52% { stroke-dashoffset: 0; opacity: 1; }
+  84% { stroke-dashoffset: 0; opacity: 1; }
+  97%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
+.follow-draw {
+  stroke-dasharray: 100;
+  animation: follow-draw 7s cubic-bezier(0.4, 0, 0.3, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .follow-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

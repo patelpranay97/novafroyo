@@ -69,8 +69,36 @@ export default function Home() {
         </span>
       </header>
 
+      {/* Follow nudge — hand-drawn loop pointing up at the social icons */}
+      <a
+        href="https://www.instagram.com/novafroyo/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group -mt-2 mr-6 flex flex-col items-end self-end sm:mr-12"
+      >
+        <svg
+          viewBox="0 0 100 56"
+          fill="none"
+          aria-hidden="true"
+          className="mr-11 h-8 w-[72px] text-charcoal/70 transition group-hover:text-charcoal sm:h-10 sm:w-[92px]"
+        >
+          <path
+            pathLength={100}
+            className="follow-draw"
+            d="M6 50C20 52 30 48 38 40C46 32 44 20 35 21C26 22 26 36 38 40C52 45 70 36 88 12M77 14L88 12L86 24"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className="font-script text-[13px] italic leading-tight text-muted transition group-hover:text-charcoal sm:text-[15px]">
+          follow for daily flavors
+        </span>
+      </a>
+
       {/* Hero */}
-      <section className="grain relative flex flex-1 flex-col items-center justify-center gap-12 px-6 pb-24 pt-12 text-center sm:gap-16 sm:px-12 sm:pb-32">
+      <section className="grain relative flex flex-1 flex-col items-center justify-center gap-12 px-6 pb-20 pt-6 text-center sm:gap-16 sm:px-12 sm:pb-32 sm:pt-10">
         {/* Sparkles — 2 charcoal anchors + 1 Aegean accent */}
         <StarIcon className="twinkle absolute left-[6%] top-[12%] h-2.5 w-2.5 text-charcoal sm:left-[16%] sm:top-[20%] sm:h-6 sm:w-6" />
         <StarIcon className="twinkle twinkle-slow absolute right-[6%] top-[26%] h-3.5 w-3.5 text-charcoal sm:right-[18%] sm:top-[38%] sm:h-8 sm:w-8" />

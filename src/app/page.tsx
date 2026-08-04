@@ -74,7 +74,7 @@ export default function Home() {
         href="https://www.instagram.com/novafroyo/"
         target="_blank"
         rel="noopener noreferrer"
-        className="group -mt-2 mr-6 flex flex-col items-end self-end sm:mr-12"
+        className="group -mt-5 mr-6 flex flex-col items-end self-end sm:-mt-6 sm:mr-12"
       >
         <svg
           viewBox="0 0 104 60"
@@ -101,15 +101,10 @@ export default function Home() {
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          {/* a little sparkle to finish */}
-          <path
-            className="follow-spark"
-            d="M99 6C99 8.2 100.8 10 103 10C100.8 10 99 11.8 99 14C99 11.8 97.2 10 95 10C97.2 10 99 8.2 99 6Z"
-            fill="currentColor"
-          />
         </svg>
-        <span className="font-script text-[13px] italic leading-tight text-muted transition group-hover:text-charcoal sm:text-[15px]">
-          follow for daily flavors
+        {/* same right margin as the arrow so the words sit under it */}
+        <span className="mr-11 font-script text-[13px] italic leading-tight text-muted transition group-hover:text-charcoal sm:text-[15px]">
+          follow us
         </span>
       </a>
 

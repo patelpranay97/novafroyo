@@ -77,19 +77,35 @@ export default function Home() {
         className="group -mt-2 mr-6 flex flex-col items-end self-end sm:mr-12"
       >
         <svg
-          viewBox="0 0 100 56"
+          viewBox="0 0 104 60"
           fill="none"
           aria-hidden="true"
-          className="mr-11 h-8 w-[72px] text-charcoal/70 transition group-hover:text-charcoal sm:h-10 sm:w-[92px]"
+          className="mr-11 h-9 w-[78px] overflow-visible text-charcoal/70 transition group-hover:text-charcoal sm:h-11 sm:w-[98px]"
         >
+          {/* the curly line — draws itself first */}
           <path
             pathLength={100}
-            className="follow-draw"
-            d="M6 50C20 52 30 48 38 40C46 32 44 20 35 21C26 22 26 36 38 40C52 45 70 36 88 12M77 14L88 12L86 24"
+            className="follow-line"
+            d="M5 50C18 53 28 50 36 44C45 37 47 24 37 23C28 22 27 37 41 42C57 48 76 40 92 16"
             stroke="currentColor"
             strokeWidth="1.6"
             strokeLinecap="round"
             strokeLinejoin="round"
+          />
+          {/* arrowhead — pops in once the line lands */}
+          <path
+            className="follow-tip"
+            d="M82 21L92 16L91 27"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {/* a little sparkle to finish */}
+          <path
+            className="follow-spark"
+            d="M99 6C99 8.2 100.8 10 103 10C100.8 10 99 11.8 99 14C99 11.8 97.2 10 95 10C97.2 10 99 8.2 99 6Z"
+            fill="currentColor"
           />
         </svg>
         <span className="font-script text-[13px] italic leading-tight text-muted transition group-hover:text-charcoal sm:text-[15px]">

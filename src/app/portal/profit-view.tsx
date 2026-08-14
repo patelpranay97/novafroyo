@@ -53,6 +53,7 @@ const MONEY_FIELDS = [
   ["net_sales", "Net sales $"],
   ["tax", "Tax $"],
   ["fees", "Fees $"],
+  ["tips", "Tips $"],
 ] as const;
 
 const COUNT_FIELDS = [
@@ -66,6 +67,8 @@ type FormState = {
   net_sales: string;
   tax: string;
   fees: string;
+  /** Lives in the tips table, not daily_sales — edited here for convenience. */
+  tips: string;
   mini_cups: string;
   regular_cups: string;
   super_cups: string;
@@ -73,16 +76,21 @@ type FormState = {
 };
 
 const emptyForm: FormState = {
-  net_sales: "", tax: "", fees: "",
+  net_sales: "", tax: "", fees: "", tips: "",
   mini_cups: "", regular_cups: "", super_cups: "", toppings: "",
 };
 
-function formFrom(sale: DailySales | undefined): FormState {
-  if (!sale) return { ...emptyForm };
+function formFrom(
+  sale: DailySales | undefined,
+  tip: TipDay | undefined,
+): FormState {
+  const tips = tip ? String(Number(tip.amount)) : "";
+  if (!sale) return { ...emptyForm, tips };
   return {
     net_sales: String(Number(sale.net_sales)),
     tax: String(Number(sale.tax)),
     fees: String(Number(sale.fees)),
+    tips,
     mini_cups: String(sale.mini_cups),
     regular_cups: String(sale.regular_cups),
     super_cups: String(sale.super_cups),
@@ -114,7 +122,6 @@ export function ProfitView({
   const [selDate, setSelDate] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>({ ...emptyForm });
   const [paste, setPaste] = useState("");
-  const [parsedTips, setParsedTips] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
   function moveMonth(delta: number) {
@@ -136,6 +143,11 @@ export function ProfitView({
   const salesByDate = useMemo(
     () => new Map(sales.map((s) => [s.work_date, s])),
     [sales],
+  );
+
+  const tipsByDate = useMemo(
+    () => new Map(tips.map((t) => [t.work_date, t])),
+    [tips],
   );
 
   const profitByDate = useMemo(() => {
@@ -239,9 +251,8 @@ export function ProfitView({
 
   function openDay(dateStr: string) {
     setSelDate(dateStr);
-    setForm(formFrom(salesByDate.get(dateStr)));
+    setForm(formFrom(salesByDate.get(dateStr), tipsByDate.get(dateStr)));
     setPaste("");
-    setParsedTips(null);
   }
 
   function handlePaste(text: string) {
@@ -254,6 +265,7 @@ export function ProfitView({
       net_sales: p.net_sales !== null ? String(p.net_sales) : prev.net_sales,
       tax: p.tax !== null ? String(p.tax) : prev.tax,
       fees: p.fees !== null ? String(p.fees) : prev.fees,
+      tips: p.tips !== null ? String(p.tips) : prev.tips,
       mini_cups: p.mini_cups !== null ? String(p.mini_cups) : prev.mini_cups,
       regular_cups:
         p.regular_cups !== null ? String(p.regular_cups) : prev.regular_cups,
@@ -261,7 +273,6 @@ export function ProfitView({
         p.super_cups !== null ? String(p.super_cups) : prev.super_cups,
       toppings: p.toppings !== null ? String(p.toppings) : prev.toppings,
     }));
-    setParsedTips(p.tips);
     if (p.date && p.date !== selDate) {
       setSelDate(p.date);
       const d = parseDateStr(p.date);
@@ -284,46 +295,56 @@ export function ProfitView({
       super_cups: count(form.super_cups),
       toppings: count(form.toppings),
     };
-    if (Object.values(vals).some((v) => !Number.isFinite(v) || v < 0)) {
-      notify("Sales numbers can't be negative");
+    const tipVal = money(form.tips);
+    if (
+      Object.values(vals).some((v) => !Number.isFinite(v) || v < 0) ||
+      !Number.isFinite(tipVal) ||
+      tipVal < 0
+    ) {
+      notify("Numbers can't be negative");
       return;
     }
     setBusy(true);
+
+    // Tips live in their own table (shared with the Week tab), so they save
+    // independently of the sales row.
+    const tipsChanged =
+      tipVal !== Number(tipsByDate.get(selDate)?.amount ?? 0);
+    let tipError = null;
+    if (tipsChanged) {
+      const res =
+        tipVal > 0
+          ? await supabase.from("tips").upsert({
+              work_date: selDate,
+              amount: tipVal,
+              updated_at: new Date().toISOString(),
+            })
+          : await supabase.from("tips").delete().eq("work_date", selDate);
+      tipError = res.error;
+    }
+
     const allZero = Object.values(vals).every((v) => v === 0);
-    if (allZero) {
-      const { error } = await supabase
-        .from("daily_sales")
-        .delete()
-        .eq("work_date", selDate);
-      if (error) notify(`Couldn't clear: ${error.message}`);
-      else {
-        await onChange();
-        notify("Sales cleared");
-        setSelDate(null);
-      }
+    const salesRes = allZero
+      ? await supabase.from("daily_sales").delete().eq("work_date", selDate)
+      : await supabase.from("daily_sales").upsert({
+          work_date: selDate,
+          ...vals,
+          updated_at: new Date().toISOString(),
+        });
+
+    const err = salesRes.error ?? tipError;
+    if (err) {
+      notify(`Couldn't save: ${err.message}`);
     } else {
-      const { error } = await supabase.from("daily_sales").upsert({
-        work_date: selDate,
-        ...vals,
-        updated_at: new Date().toISOString(),
-      });
-      if (error) notify(`Couldn't save: ${error.message}`);
-      else {
-        if (parsedTips !== null && parsedTips > 0) {
-          await supabase.from("tips").upsert({
-            work_date: selDate,
-            amount: Math.round(parsedTips * 100) / 100,
-            updated_at: new Date().toISOString(),
-          });
-        }
-        await onChange();
-        notify(
-          parsedTips !== null && parsedTips > 0
+      await onChange();
+      notify(
+        allZero && tipVal === 0
+          ? "Day cleared"
+          : tipsChanged
             ? "Sales + tips saved"
             : "Sales saved",
-        );
-        setSelDate(null);
-      }
+      );
+      setSelDate(null);
     }
     setBusy(false);
   }
@@ -769,17 +790,11 @@ export function ProfitView({
                 rows={3}
                 className={`${inputCls} mt-2 resize-y text-xs`}
               />
-              {parsedTips !== null && (
-                <p className="mt-1 text-[11px] text-[#5a7d4f]">
-                  Tips {fmtMoney(parsedTips)} found — will be saved to this
-                  day&apos;s tips too.
-                </p>
-              )}
             </div>
 
             <div>
               <SectionLabel>Numbers</SectionLabel>
-              <div className="mt-2 grid grid-cols-3 gap-2">
+              <div className="mt-2 grid grid-cols-2 gap-2">
                 {MONEY_FIELDS.map(([key, label]) => (
                   <label key={key} className="flex flex-col gap-1">
                     <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">

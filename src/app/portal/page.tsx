@@ -34,6 +34,17 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "insights", label: "Insights" },
 ];
 
+/** Settings row over the defaults, ignoring absent/null columns. */
+function mergeSettings(row: unknown): Settings {
+  if (!row || typeof row !== "object") return DEFAULT_SETTINGS;
+  const present = Object.fromEntries(
+    Object.entries(row as Record<string, unknown>).filter(
+      ([, v]) => v !== null && v !== undefined,
+    ),
+  );
+  return { ...DEFAULT_SETTINGS, ...present };
+}
+
 export default function PortalPage() {
   const supabase = getSupabase();
   const [session, setSession] = useState<Session | null | undefined>(
@@ -96,8 +107,11 @@ export default function PortalPage() {
     setScheduleReady(!sch.error);
     // Daily sales/settings are non-fatal the same way (migration-daily-sales.sql).
     setSales(sls.error ? [] : ((sls.data as DailySales[]) ?? []));
+    // Layered over the defaults so a column added by a migration that hasn't
+    // been run yet falls back instead of arriving undefined and turning every
+    // figure that touches it into NaN.
     setSettings(
-      stg.error ? DEFAULT_SETTINGS : ((stg.data?.[0] as Settings) ?? DEFAULT_SETTINGS),
+      stg.error ? DEFAULT_SETTINGS : mergeSettings(stg.data?.[0]),
     );
     setSalesReady(!sls.error && !stg.error);
     // Stock tracking is non-fatal the same way (migration-inventory.sql).

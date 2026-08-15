@@ -78,6 +78,7 @@ create table public.settings (
   super_cost numeric(6,3) not null default 2.61,
   topping_cost numeric(6,3) not null default 0.50,
   landlord_pct numeric(5,2) not null default 10,
+  monthly_rent numeric(10,2) not null default 3500,
   updated_at timestamptz not null default now()
 );
 

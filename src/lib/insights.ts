@@ -1,11 +1,15 @@
 // Pure, data-driven aggregations for the Insights tab.
-// Everything here derives from shifts + tips + employees — no estimates,
-// no modeling, just arithmetic over what was logged.
+// Everything here derives from shifts, tips, employees, and daily sales — no
+// estimates, no modeling, just arithmetic over what was logged (the one
+// exception being the projections at the bottom, which say so).
 
 import {
+  type DailySales,
   type Employee,
+  type Settings,
   type Shift,
   type TipDay,
+  dayProfit,
   parseDateStr,
   round2,
   shiftPay,
@@ -36,18 +40,25 @@ function monthPrefix(year: number, month: number): string {
   return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
 
+/**
+ * `throughDay` caps the month at that day-of-month. Comparing a month in
+ * progress against a whole previous month reads as a huge decline when nothing
+ * has actually changed, so the previous month gets capped to the same day.
+ */
 export function monthTotals(
   shifts: Shift[],
   tips: TipDay[],
   year: number,
   month: number,
+  throughDay?: number,
 ): MonthTotals {
   const prefix = monthPrefix(year, month);
-  const mShifts = shifts.filter((s) => s.work_date.startsWith(prefix));
+  const inRange = (d: string) =>
+    d.startsWith(prefix) &&
+    (throughDay === undefined || Number(d.slice(8, 10)) <= throughDay);
+  const mShifts = shifts.filter((s) => inRange(s.work_date));
   const tipsSum = round2(
-    tips
-      .filter((t) => t.work_date.startsWith(prefix))
-      .reduce((a, t) => a + Number(t.amount), 0),
+    tips.filter((t) => inRange(t.work_date)).reduce((a, t) => a + Number(t.amount), 0),
   );
   const hours = round2(mShifts.reduce((a, s) => a + Number(s.hours), 0));
   const payroll = round2(mShifts.reduce((a, s) => a + shiftPay(s), 0));
@@ -465,6 +476,213 @@ export function simulateIncome(
     thinWeekdays: WEEKDAY_LABELS.filter(
       (_, i) => byWeekday[i].length === 1,
     ),
+  };
+}
+
+// ---------- Earnings (sales-driven) ----------
+//
+// Everything below reads the same daily_sales rows the Profit tab uses, run
+// through the same dayProfit() — so a number here can never disagree with the
+// number there.
+
+/** Wages logged per date, keyed YYYY-MM-DD. */
+export function laborByDate(shifts: Shift[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const s of shifts) {
+    m.set(s.work_date, round2((m.get(s.work_date) ?? 0) + shiftPay(s)));
+  }
+  return m;
+}
+
+export type EarningsTotals = {
+  net: number;
+  profit: number;
+  /** after the landlord's cut and the month's rent */
+  takeHome: number;
+  landlord: number;
+  days: number;
+  /** average net sales per day the shop was open */
+  avgDay: number;
+  /** profit as a share of net sales; null when nothing sold */
+  margin: number | null;
+  cups: number;
+  /** net sales ÷ cups sold; null when no cups logged */
+  perCup: number | null;
+};
+
+/** `throughDay` caps the month at that day-of-month — see monthTotals(). */
+export function earningsTotals(
+  sales: DailySales[],
+  settings: Settings,
+  labor: Map<string, number>,
+  year: number,
+  month: number,
+  throughDay?: number,
+): EarningsTotals {
+  const prefix = monthPrefix(year, month);
+  const rows = sales.filter(
+    (s) =>
+      s.work_date.startsWith(prefix) &&
+      (throughDay === undefined || Number(s.work_date.slice(8, 10)) <= throughDay),
+  );
+  let net = 0, profit = 0, landlord = 0, cups = 0;
+  for (const s of rows) {
+    const p = dayProfit(s, settings, labor.get(s.work_date) ?? 0);
+    net += Number(s.net_sales);
+    profit += p.profit;
+    landlord += p.landlordShare;
+    cups += s.mini_cups + s.regular_cups + s.super_cups;
+  }
+  net = round2(net);
+  profit = round2(profit);
+  landlord = round2(landlord);
+  return {
+    net,
+    profit,
+    landlord,
+    takeHome: round2(profit - landlord - Number(settings.monthly_rent)),
+    days: rows.length,
+    avgDay: rows.length > 0 ? round2(net / rows.length) : 0,
+    margin: net > 0 ? round2((profit / net) * 100) : null,
+    cups,
+    perCup: cups > 0 ? round2(net / cups) : null,
+  };
+}
+
+export type SalesWeekdayStat = {
+  weekday: number; // 0 = Mon
+  label: string;
+  avgNet: number;
+  avgProfit: number;
+  daysCounted: number;
+};
+
+/** Average sales and profit for each day of the week. */
+export function salesByWeekday(
+  sales: DailySales[],
+  settings: Settings,
+  labor: Map<string, number>,
+): SalesWeekdayStat[] {
+  const netSum = new Array(7).fill(0);
+  const profitSum = new Array(7).fill(0);
+  const counts = new Array(7).fill(0);
+  for (const s of sales) {
+    const w = weekdayIndex(s.work_date);
+    netSum[w] += Number(s.net_sales);
+    profitSum[w] += dayProfit(s, settings, labor.get(s.work_date) ?? 0).profit;
+    counts[w]++;
+  }
+  return WEEKDAY_LABELS.map((label, weekday) => ({
+    weekday,
+    label,
+    daysCounted: counts[weekday],
+    avgNet: counts[weekday] > 0 ? round2(netSum[weekday] / counts[weekday]) : 0,
+    avgProfit:
+      counts[weekday] > 0 ? round2(profitSum[weekday] / counts[weekday]) : 0,
+  }));
+}
+
+export type BreakEven = {
+  /** net sales needed on an average open day to clear every cost */
+  dailyTarget: number;
+  /** what you're actually averaging */
+  avgDaily: number;
+  /** open days per month implied by your observed cadence */
+  openDaysPerMonth: number;
+  /** cups cost + card fees + landlord, as a share of each sales dollar */
+  variableRatio: number;
+  avgDailyLabor: number;
+  covered: boolean;
+};
+
+/**
+ * The daily sales number that covers variable costs, wages, and rent.
+ *
+ * Variable costs scale with sales, so they're taken as a ratio; wages and rent
+ * don't, so they're the fixed side. Needs a real span of history (a week and
+ * at least 5 logged days) or it returns null rather than guessing.
+ */
+export function breakEven(
+  sales: DailySales[],
+  settings: Settings,
+  labor: Map<string, number>,
+): BreakEven | null {
+  if (sales.length < 5) return null;
+  const dates = sales.map((s) => s.work_date).sort();
+  const spanDays =
+    Math.round(
+      (parseDateStr(dates[dates.length - 1]).getTime() -
+        parseDateStr(dates[0]).getTime()) /
+        86_400_000,
+    ) + 1;
+  if (spanDays < 7) return null;
+
+  let net = 0, variable = 0, laborSum = 0;
+  for (const s of sales) {
+    const p = dayProfit(s, settings, labor.get(s.work_date) ?? 0);
+    net += Number(s.net_sales);
+    variable += p.cogs + Number(s.fees) + p.landlordShare;
+    laborSum += p.labor;
+  }
+  if (net <= 0) return null;
+  const variableRatio = variable / net;
+  // A margin at or below zero has no break-even point — more sales lose more.
+  if (variableRatio >= 1) return null;
+
+  const openDaysPerMonth = Math.min(
+    30.44,
+    round2((sales.length / spanDays) * 30.44),
+  );
+  if (openDaysPerMonth <= 0) return null;
+  const avgDailyLabor = round2(laborSum / sales.length);
+  const fixedPerDay =
+    avgDailyLabor + Number(settings.monthly_rent) / openDaysPerMonth;
+  const avgDaily = round2(net / sales.length);
+  return {
+    dailyTarget: round2(fixedPerDay / (1 - variableRatio)),
+    avgDaily,
+    openDaysPerMonth: Math.round(openDaysPerMonth),
+    variableRatio: round2(variableRatio * 100),
+    avgDailyLabor,
+    covered: avgDaily >= round2(fixedPerDay / (1 - variableRatio)),
+  };
+}
+
+export type RentProgress = {
+  rent: number;
+  /** month-to-date profit after the landlord's cut */
+  earned: number;
+  /** the day the month's rent was fully covered, if it has been */
+  coveredOn: string | null;
+  remaining: number;
+};
+
+/** How far into the month you are toward covering rent. */
+export function rentProgress(
+  sales: DailySales[],
+  settings: Settings,
+  labor: Map<string, number>,
+  year: number,
+  month: number,
+): RentProgress {
+  const prefix = monthPrefix(year, month);
+  const rows = sales
+    .filter((s) => s.work_date.startsWith(prefix))
+    .sort((a, b) => a.work_date.localeCompare(b.work_date));
+  const rent = Number(settings.monthly_rent);
+  let running = 0;
+  let coveredOn: string | null = null;
+  for (const s of rows) {
+    const p = dayProfit(s, settings, labor.get(s.work_date) ?? 0);
+    running += p.afterLandlord;
+    if (coveredOn === null && running >= rent) coveredOn = s.work_date;
+  }
+  const earned = round2(running);
+  return {
+    rent,
+    earned,
+    coveredOn,
+    remaining: round2(Math.max(0, rent - earned)),
   };
 }
 

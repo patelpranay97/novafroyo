@@ -80,6 +80,7 @@ export type Settings = {
   super_cost: number;
   topping_cost: number;
   landlord_pct: number;
+  monthly_rent: number;
   updated_at: string;
 };
 
@@ -90,6 +91,7 @@ export const DEFAULT_SETTINGS: Settings = {
   super_cost: 2.61,
   topping_cost: 0.5,
   landlord_pct: 10,
+  monthly_rent: 3500,
   updated_at: "",
 };
 

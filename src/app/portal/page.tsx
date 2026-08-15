@@ -238,7 +238,13 @@ export default function PortalPage() {
               />
             )}
             {tab === "insights" && (
-              <InsightsView employees={employees} shifts={shifts} tips={tips} />
+              <InsightsView
+                employees={employees}
+                shifts={shifts}
+                tips={tips}
+                sales={sales}
+                settings={settings}
+              />
             )}
           </>
         )}

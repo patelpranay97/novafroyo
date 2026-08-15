@@ -51,6 +51,7 @@ const COST_FIELDS = [
   ["super_cost", "Super (10oz) cost"],
   ["topping_cost", "Extra topping cost"],
   ["landlord_pct", "Landlord share %"],
+  ["monthly_rent", "Monthly rent $"],
 ] as const;
 
 const MONEY_FIELDS = [
@@ -226,6 +227,11 @@ export function ProfitView({
       toppings: monthRows.reduce((a, r) => a + r.sales.toppings, 0),
     };
   }, [monthRows]);
+
+  // What's actually left after the landlord's cut and the month's rent.
+  const bottomLine = round2(
+    totals.profit - totals.landlord - Number(settings.monthly_rent),
+  );
 
   // Sorted by date for the profit-by-day chart.
   const chartRows = useMemo(
@@ -526,9 +532,17 @@ export function ProfitView({
           <br />
           Landlord share ({Number(settings.landlord_pct)}%):{" "}
           {fmtMoney(totals.landlord)} — after it:{" "}
-          <span className="font-semibold text-charcoal">
-            {fmtMoney(round2(totals.profit - totals.landlord))}
-          </span>
+          {fmtMoney(round2(totals.profit - totals.landlord))}
+          <br />
+          Less rent ({fmtMoney(Number(settings.monthly_rent))}) ={" "}
+          <span
+            className={`font-semibold ${
+              bottomLine < 0 ? "text-[#a04a4a]" : "text-charcoal"
+            }`}
+          >
+            {fmtMoney(bottomLine)}
+          </span>{" "}
+          take-home
         </p>
       )}
 

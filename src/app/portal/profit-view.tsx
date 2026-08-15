@@ -17,7 +17,11 @@ import {
   shiftPay,
   toDateStr,
 } from "@/lib/portal";
-import { projectIncome } from "@/lib/insights";
+import {
+  type IncomeRange,
+  projectIncome,
+  simulateIncome,
+} from "@/lib/insights";
 import { Card, Modal, SectionLabel, btnSolidCls, inputCls } from "./ui";
 import { ColumnChart } from "./charts";
 
@@ -96,6 +100,24 @@ function formFrom(
     super_cups: String(sale.super_cups),
     toppings: String(sale.toppings),
   };
+}
+
+/** Compact money for tight spaces: 2286 -> "$2.3k". */
+function fmtMoneyShort(v: number): string {
+  const sign = v < 0 ? "−" : "";
+  const a = Math.abs(v);
+  if (a >= 1000) return `${sign}$${(a / 1000).toFixed(1)}k`;
+  return `${sign}$${Math.round(a)}`;
+}
+
+/** The simulated 10th–90th percentile band under a projection figure. */
+function RangeLine({ r }: { r: IncomeRange }) {
+  if (r.high <= 0 && r.low <= 0) return null;
+  return (
+    <p className="mt-0.5 text-[9px] leading-tight text-muted/70">
+      {fmtMoneyShort(r.low)} – {fmtMoneyShort(r.high)}
+    </p>
+  );
 }
 
 /** Compact money for calendar cells: 2286 -> "2.3k", -120 -> "-120". */
@@ -235,6 +257,17 @@ export function ProfitView({
       profit: dayProfit(s, settings, laborByDate.get(s.work_date) ?? 0).profit,
     }));
     return projectIncome(entries, today);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sales, settings, laborByDate]);
+
+  // Same inputs, simulated instead of averaged — shows the spread around it.
+  const simulation = useMemo(() => {
+    const entries = sales.map((s) => ({
+      work_date: s.work_date,
+      net: Number(s.net_sales),
+      profit: dayProfit(s, settings, laborByDate.get(s.work_date) ?? 0).profit,
+    }));
+    return simulateIncome(entries, today);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sales, settings, laborByDate]);
 
@@ -684,6 +717,7 @@ export function ProfitView({
                 <p className="mt-1 font-display text-lg">
                   {fmtMoney(projection.monthGross)}
                 </p>
+                <RangeLine r={simulation.monthGross} />
               </Card>
               <Card className="text-center">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">
@@ -694,6 +728,7 @@ export function ProfitView({
                 >
                   {fmtMoney(projection.monthNet)}
                 </p>
+                <RangeLine r={simulation.monthNet} />
               </Card>
               <Card className="text-center">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">
@@ -702,6 +737,7 @@ export function ProfitView({
                 <p className="mt-1 font-display text-lg">
                   {fmtMoney(projection.ninetyGross)}
                 </p>
+                <RangeLine r={simulation.ninetyGross} />
               </Card>
               <Card className="text-center">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">
@@ -712,6 +748,7 @@ export function ProfitView({
                 >
                   {fmtMoney(projection.ninetyNet)}
                 </p>
+                <RangeLine r={simulation.ninetyNet} />
               </Card>
             </div>
             <p className="mt-2 text-center text-[10px] leading-relaxed text-muted/80">
@@ -720,8 +757,8 @@ export function ProfitView({
               {projection.monthDaysProjected} estimated day
               {projection.monthDaysProjected === 1 ? "" : "s"}.
               <br />
-              Estimates average your last {projection.sampleDays} logged days
-              by day of week. Gross = net sales; net = profit after cups,
+              The big number averages your last {projection.sampleDays} logged
+              days by day of week. Gross = net sales; net = profit after cups,
               wages, fees.
               {projection.zeroWeekdays.length > 0 &&
                 projection.zeroWeekdays.length < 7 && (
@@ -731,6 +768,21 @@ export function ProfitView({
                     yet).
                   </>
                 )}
+            </p>
+            <p className="mt-2 border-t border-charcoal/10 pt-2 text-center text-[10px] leading-relaxed text-muted/70">
+              The smaller range is a {simulation.trials.toLocaleString()}-run
+              simulation that rebuilds each future day from a random past day
+              of the same weekday — 8 in 10 runs landed inside it. It only
+              captures normal day-to-day swing, not a slow season, a closure,
+              or weather, so treat it as a floor on the uncertainty, not a
+              promise.
+              {simulation.thinWeekdays.length > 0 && (
+                <>
+                  {" "}
+                  {simulation.thinWeekdays.join("/")} have only one day logged,
+                  so they add no spread yet.
+                </>
+              )}
             </p>
           </Card>
         </details>

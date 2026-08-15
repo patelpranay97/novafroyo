@@ -316,6 +316,158 @@ export function projectIncome(
   };
 }
 
+// ---------- Monte Carlo income simulation ----------
+// Bootstrap: for each future day, draw a real past day of the same weekday,
+// at random, with replacement. Repeat a few thousand times to see the spread
+// of plausible totals. Deterministically seeded from the data, so the same
+// entries always produce the same range (a projection that changed on every
+// refresh would be worthless).
+
+export type IncomeRange = {
+  low: number; // 10th percentile
+  mid: number; // median
+  high: number; // 90th percentile
+};
+
+export type IncomeSimulation = {
+  monthGross: IncomeRange;
+  monthNet: IncomeRange;
+  ninetyGross: IncomeRange;
+  ninetyNet: IncomeRange;
+  trials: number;
+  /** Weekdays with fewer than 2 samples can't show real spread. */
+  thinWeekdays: string[];
+};
+
+function hashSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** mulberry32 — small, fast, deterministic PRNG. */
+function makeRng(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const idx = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.round((p / 100) * (sorted.length - 1))),
+  );
+  return round2(sorted[idx]);
+}
+
+export function simulateIncome(
+  entries: IncomeEntry[],
+  today: Date,
+  trials = 2000,
+): IncomeSimulation {
+  const todayStr = toDateStr(today);
+  const cutoff = toDateStr(addDays(today, -28));
+  let window = entries.filter(
+    (e) => e.work_date >= cutoff && e.work_date <= todayStr,
+  );
+  if (window.length === 0) window = entries;
+
+  // Observed days grouped by weekday.
+  const byWeekday: { net: number; profit: number }[][] = Array.from(
+    { length: 7 },
+    () => [],
+  );
+  for (const e of window) {
+    byWeekday[weekdayIndex(e.work_date)].push({
+      net: Number(e.net),
+      profit: Number(e.profit),
+    });
+  }
+
+  // Days still to come this month, and the next 90 days.
+  const byDate = new Map(entries.map((e) => [e.work_date, e]));
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const monthFuture: number[] = [];
+  let monthActualGross = 0;
+  let monthActualNet = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = toDateStr(new Date(y, m, d));
+    const e = byDate.get(ds);
+    if (e) {
+      monthActualGross += Number(e.net);
+      monthActualNet += Number(e.profit);
+    } else if (ds >= todayStr) {
+      monthFuture.push(weekdayIndex(ds));
+    }
+  }
+  const ninetyDays: number[] = [];
+  for (let i = 0; i < 90; i++) {
+    ninetyDays.push((addDays(today, i).getDay() + 6) % 7);
+  }
+
+  const seed = hashSeed(
+    window.map((e) => `${e.work_date}:${e.net}:${e.profit}`).join("|"),
+  );
+  const rng = makeRng(seed || 1);
+
+  const mg: number[] = [];
+  const mn: number[] = [];
+  const ng: number[] = [];
+  const nn: number[] = [];
+  for (let t = 0; t < trials; t++) {
+    let mGross = monthActualGross;
+    let mNet = monthActualNet;
+    for (const w of monthFuture) {
+      const obs = byWeekday[w];
+      if (obs.length === 0) continue; // no data for that weekday -> $0
+      const pick = obs[Math.floor(rng() * obs.length)];
+      mGross += pick.net;
+      mNet += pick.profit;
+    }
+    let nGross = 0;
+    let nNet = 0;
+    for (const w of ninetyDays) {
+      const obs = byWeekday[w];
+      if (obs.length === 0) continue;
+      const pick = obs[Math.floor(rng() * obs.length)];
+      nGross += pick.net;
+      nNet += pick.profit;
+    }
+    mg.push(mGross);
+    mn.push(mNet);
+    ng.push(nGross);
+    nn.push(nNet);
+  }
+  for (const arr of [mg, mn, ng, nn]) arr.sort((a, b) => a - b);
+  const range = (arr: number[]): IncomeRange => ({
+    low: percentile(arr, 10),
+    mid: percentile(arr, 50),
+    high: percentile(arr, 90),
+  });
+
+  return {
+    monthGross: range(mg),
+    monthNet: range(mn),
+    ninetyGross: range(ng),
+    ninetyNet: range(nn),
+    trials,
+    thinWeekdays: WEEKDAY_LABELS.filter(
+      (_, i) => byWeekday[i].length === 1,
+    ),
+  };
+}
+
 // ---------- Unpaid aging + records ----------
 
 export type UnpaidAging = {

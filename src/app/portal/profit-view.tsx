@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   type DailySales,
@@ -19,6 +19,7 @@ import {
   shiftPay,
   toDateStr,
 } from "@/lib/portal";
+import { fetchDayWeather } from "@/lib/weather";
 import {
   type IncomeRange,
   projectIncome,
@@ -79,6 +80,14 @@ const WEATHER_OPTIONS: { value: Weather; label: string; icon: string }[] = [
   { value: "rain", label: "Rain", icon: "☂" },
   { value: "snow", label: "Snow", icon: "❄" },
 ];
+
+/** Same glyphs as the entry chips, so a cell reads like what you tapped. */
+const WEATHER_ICON: Record<Weather, string> = {
+  sunny: "\u2600",
+  cloudy: "\u2601",
+  rain: "\u2602",
+  snow: "\u2744",
+};
 
 const COUNT_FIELDS = [
   ["mini_cups", "Mini"],
@@ -169,6 +178,9 @@ export function ProfitView({
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [selDate, setSelDate] = useState<string | null>(null);
+  const [wxBusy, setWxBusy] = useState(false);
+  const [wxAuto, setWxAuto] = useState(false);
+  const wxAbort = useRef<AbortController | null>(null);
   const [form, setForm] = useState<FormState>({ ...emptyForm });
   const [paste, setPaste] = useState("");
   const [busy, setBusy] = useState(false);
@@ -315,10 +327,65 @@ export function ProfitView({
     return out;
   }, [year, month]);
 
+  /**
+   * Fill the weather fields from Open-Meteo. Skipped when the day already has
+   * weather logged unless `force` (the refresh button) says otherwise, and
+   * silent on failure — a missed lookup just leaves the chips to be tapped.
+   */
+  function lookupWeather(dateStr: string, force: boolean, sale?: DailySales) {
+    const logged =
+      !!sale?.weather || (sale?.temp_f !== null && sale?.temp_f !== undefined);
+    if (logged && !force) return;
+    wxAbort.current?.abort();
+    const ac = new AbortController();
+    wxAbort.current = ac;
+    setWxBusy(true);
+    void fetchDayWeather(dateStr, ac.signal)
+      .then((hit) => {
+        if (!hit || ac.signal.aborted) return;
+        setForm((prev) =>
+          // Never clobber something typed while the request was in flight.
+          force || (prev.weather === "" && prev.temp_f === "")
+            ? { ...prev, weather: hit.weather, temp_f: String(hit.temp_f) }
+            : prev,
+        );
+        setWxAuto(true);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!ac.signal.aborted) setWxBusy(false);
+      });
+  }
+
+  /** Spoken name for a calendar cell — the glyphs inside it are decorative. */
+  function cellLabel(dateStr: string): string {
+    const day = Number(dateStr.slice(8));
+    const sale = salesByDate.get(dateStr);
+    const p = profitByDate.get(dateStr);
+    const bits: string[] = [`Day ${day}`];
+    if (p) bits.push(`profit ${fmtMoney(p.profit)}`);
+    if (sale?.weather) bits.push(sale.weather);
+    if (sale?.temp_f !== null && sale?.temp_f !== undefined) {
+      bits.push(`${sale.temp_f} degrees`);
+    }
+    if (sale?.mix_source === "copacker") bits.push("co-packer mix");
+    return bits.join(", ");
+  }
+
   function openDay(dateStr: string) {
+    const sale = salesByDate.get(dateStr);
     setSelDate(dateStr);
-    setForm(formFrom(salesByDate.get(dateStr), tipsByDate.get(dateStr)));
+    setForm(formFrom(sale, tipsByDate.get(dateStr)));
     setPaste("");
+    setWxAuto(false);
+    setWxBusy(false);
+    lookupWeather(dateStr, false, sale);
+  }
+
+  function closeDay() {
+    wxAbort.current?.abort();
+    setWxBusy(false);
+    setSelDate(null);
   }
 
   function handlePaste(text: string) {
@@ -436,7 +503,7 @@ export function ProfitView({
             ? "Sales + tips saved"
             : "Sales saved",
       );
-      setSelDate(null);
+      closeDay();
     }
     setBusy(false);
   }
@@ -615,13 +682,14 @@ export function ProfitView({
         ))}
         {cells.map((dateStr, i) =>
           dateStr === null ? (
-            <div key={`blank-${i}`} className="min-h-14 bg-cream/60 sm:min-h-16" />
+            <div key={`blank-${i}`} className="min-h-16 bg-cream/60 sm:min-h-[4.5rem]" />
           ) : (
             <button
               key={dateStr}
               type="button"
               onClick={() => openDay(dateStr)}
-              className={`flex min-h-14 flex-col items-center justify-between bg-cream-soft p-1 transition hover:bg-cream-deep sm:min-h-16 ${
+              aria-label={cellLabel(dateStr)}
+              className={`flex min-h-16 flex-col items-center justify-between bg-cream-soft p-1 transition hover:bg-cream-deep sm:min-h-[4.5rem] ${
                 dateStr === todayStr
                   ? "outline outline-1 -outline-offset-1 outline-charcoal"
                   : ""
@@ -641,21 +709,41 @@ export function ProfitView({
                   <span
                     className="mt-1 h-1.5 w-1.5 rounded-full bg-[#8a5a2b]"
                     title="Co-packer mix"
-                    aria-label="Co-packer mix"
+                    aria-hidden="true"
                   />
                 )}
               </span>
-              {profitByDate.has(dateStr) && (
-                <span
-                  className={`pb-0.5 text-[10px] font-semibold ${
-                    profitByDate.get(dateStr)!.profit < 0
-                      ? "text-[#a04a4a]"
-                      : "text-[#5a7d4f]"
-                  }`}
-                >
-                  {fmtCompact(profitByDate.get(dateStr)!.profit)}
-                </span>
-              )}
+              <span className="flex flex-col items-center gap-px pb-0.5">
+                {(() => {
+                  const sale = salesByDate.get(dateStr);
+                  const icon = sale?.weather ? WEATHER_ICON[sale.weather] : null;
+                  const temp =
+                    sale?.temp_f === null || sale?.temp_f === undefined
+                      ? null
+                      : `${sale.temp_f}°`;
+                  if (!icon && !temp) return null;
+                  return (
+                    <span
+                      className="flex items-center gap-0.5 text-[9px] leading-none text-muted"
+                      aria-hidden="true"
+                    >
+                      {icon && <span>{icon}</span>}
+                      {temp && <span>{temp}</span>}
+                    </span>
+                  );
+                })()}
+                {profitByDate.has(dateStr) && (
+                  <span
+                    className={`text-[10px] font-semibold leading-none ${
+                      profitByDate.get(dateStr)!.profit < 0
+                        ? "text-[#a04a4a]"
+                        : "text-[#5a7d4f]"
+                    }`}
+                  >
+                    {fmtCompact(profitByDate.get(dateStr)!.profit)}
+                  </span>
+                )}
+              </span>
             </button>
           ),
         )}
@@ -919,7 +1007,7 @@ export function ProfitView({
             month: "long",
             day: "numeric",
           })}
-          onClose={() => setSelDate(null)}
+          onClose={closeDay}
         >
           <div className="flex flex-col gap-4">
             <div>
@@ -1012,9 +1100,19 @@ export function ProfitView({
             </div>
 
             <div>
-              <SectionLabel>Weather</SectionLabel>
-              <div className="mt-2 flex items-stretch gap-2">
-                <div className="flex flex-1 gap-1" role="radiogroup" aria-label="Weather that day">
+              <div className="flex items-center justify-between gap-2">
+                <SectionLabel>Weather</SectionLabel>
+                <button
+                  type="button"
+                  disabled={wxBusy}
+                  onClick={() => lookupWeather(selDate, true, salesByDate.get(selDate))}
+                  className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted underline-offset-2 transition hover:text-charcoal disabled:opacity-50"
+                >
+                  {wxBusy ? "Looking up…" : "↻ Look up"}
+                </button>
+              </div>
+              <div className="mt-2">
+                <div className="flex gap-1" role="radiogroup" aria-label="Weather that day">
                   {WEATHER_OPTIONS.map((o) => {
                     const on = form.weather === o.value;
                     return (
@@ -1046,24 +1144,25 @@ export function ProfitView({
                     );
                   })}
                 </div>
-                <label className="flex w-16 flex-col gap-1">
-                  <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
-                    °F
-                  </span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    step="1"
-                    placeholder="72"
-                    value={form.temp_f}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, temp_f: e.target.value }))
-                    }
-                    aria-label="High temperature in Fahrenheit"
-                    className={`${inputCls} h-full`}
-                  />
-                </label>
               </div>
+              {/* Temperature is never typed — it comes from the day's actual
+                  reading for the West Loop, so it stays comparable. */}
+              <p className="mt-1.5 text-[10px] text-muted/70">
+                {wxBusy ? (
+                  "Looking up the West Loop…"
+                ) : form.temp_f !== "" ? (
+                  <>
+                    High{" "}
+                    <span className="font-semibold text-charcoal">
+                      {form.temp_f}°F
+                    </span>
+                    {wxAuto ? " · from Open-Meteo" : " · saved with this day"} ·
+                    tap a chip to change the condition
+                  </>
+                ) : (
+                  "No temperature for this day — tap ↻ Look up to fetch it."
+                )}
+              </p>
             </div>
 
             {previewProfit && Number(form.net_sales) > 0 && (

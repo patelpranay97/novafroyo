@@ -841,37 +841,37 @@ export function ProfitView({
                   />
                 )}
               </span>
-              <span className="flex flex-col items-center gap-px pb-0.5">
-                {(() => {
-                  const sale = salesByDate.get(dateStr);
-                  const icon = sale?.weather ? WEATHER_ICON[sale.weather] : null;
-                  const temp =
-                    sale?.temp_f === null || sale?.temp_f === undefined
-                      ? null
-                      : `${sale.temp_f}°`;
-                  if (!icon && !temp) return null;
-                  return (
-                    <span
-                      className="flex items-center gap-0.5 text-[9px] leading-none text-muted"
-                      aria-hidden="true"
-                    >
-                      {icon && <span>{icon}</span>}
-                      {temp && <span>{temp}</span>}
-                    </span>
-                  );
-                })()}
-                {profitByDate.has(dateStr) && (
+              {/* Weather sits between the date and the profit, so the two
+                  numbers don't read as one block. */}
+              {(() => {
+                const sale = salesByDate.get(dateStr);
+                const icon = sale?.weather ? WEATHER_ICON[sale.weather] : null;
+                const temp =
+                  sale?.temp_f === null || sale?.temp_f === undefined
+                    ? null
+                    : `${sale.temp_f}°`;
+                if (!icon && !temp) return null;
+                return (
                   <span
-                    className={`text-[10px] font-semibold leading-none ${
-                      profitByDate.get(dateStr)!.profit < 0
-                        ? "text-[#a04a4a]"
-                        : "text-[#5a7d4f]"
-                    }`}
+                    className="flex items-center gap-0.5 leading-none text-muted"
+                    aria-hidden="true"
                   >
-                    {fmtCompact(profitByDate.get(dateStr)!.profit)}
+                    {icon && <span className="text-[10.5px]">{icon}</span>}
+                    {temp && <span className="text-[9px]">{temp}</span>}
                   </span>
-                )}
-              </span>
+                );
+              })()}
+              {profitByDate.has(dateStr) && (
+                <span
+                  className={`pb-0.5 text-[10px] font-semibold leading-none ${
+                    profitByDate.get(dateStr)!.profit < 0
+                      ? "text-[#a04a4a]"
+                      : "text-[#5a7d4f]"
+                  }`}
+                >
+                  {fmtCompact(profitByDate.get(dateStr)!.profit)}
+                </span>
+              )}
             </button>
           ),
         )}

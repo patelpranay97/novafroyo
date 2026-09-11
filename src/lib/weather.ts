@@ -38,7 +38,11 @@ export function weatherFromCode(code: number): Weather {
 }
 
 type DailyResponse = {
-  daily?: { weather_code?: (number | null)[]; temperature_2m_max?: (number | null)[] };
+  daily?: {
+    time?: string[];
+    weather_code?: (number | null)[];
+    temperature_2m_max?: (number | null)[];
+  };
   error?: boolean;
 };
 
@@ -81,4 +85,45 @@ export async function fetchDayWeather(
     }
   }
   return null;
+}
+
+/**
+ * The same lookup across a span of days, in one request per endpoint rather
+ * than one per day — a month of backfill costs two calls, not sixty.
+ * Days the API has nothing for are simply absent from the map.
+ */
+export async function fetchRangeWeather(
+  startDate: string,
+  endDate: string,
+  signal?: AbortSignal,
+): Promise<Map<string, FetchedWeather>> {
+  const range = `&start_date=${startDate}&end_date=${endDate}`;
+  const out = new Map<string, FetchedWeather>();
+  const endpoints = [
+    `https://api.open-meteo.com/v1/forecast?${COMMON}${range}`,
+    `https://archive-api.open-meteo.com/v1/archive?${COMMON}${range}`,
+  ];
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, { signal });
+      if (!res.ok) continue;
+      const json = (await res.json()) as DailyResponse;
+      const days = json.daily?.time ?? [];
+      const codes = json.daily?.weather_code ?? [];
+      const temps = json.daily?.temperature_2m_max ?? [];
+      days.forEach((day, i) => {
+        // The first endpoint to answer for a day wins; the archive only fills
+        // the gaps the forecast window didn't reach.
+        if (out.has(day)) return;
+        const code = codes[i];
+        const temp = temps[i];
+        if (code === null || code === undefined) return;
+        if (temp === null || temp === undefined) return;
+        out.set(day, { weather: weatherFromCode(code), temp_f: Math.round(temp) });
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") throw err;
+    }
+  }
+  return out;
 }

@@ -19,7 +19,7 @@ import {
   shiftPay,
   toDateStr,
 } from "@/lib/portal";
-import { fetchDayWeather } from "@/lib/weather";
+import { fetchDayWeather, fetchRangeWeather } from "@/lib/weather";
 import {
   type IncomeRange,
   projectIncome,
@@ -181,6 +181,7 @@ export function ProfitView({
   const [wxBusy, setWxBusy] = useState(false);
   const [wxAuto, setWxAuto] = useState(false);
   const wxAbort = useRef<AbortController | null>(null);
+  const [fillBusy, setFillBusy] = useState(false);
   const [form, setForm] = useState<FormState>({ ...emptyForm });
   const [paste, setPaste] = useState("");
   const [busy, setBusy] = useState(false);
@@ -380,6 +381,59 @@ export function ProfitView({
     setWxAuto(false);
     setWxBusy(false);
     lookupWeather(dateStr, false, sale);
+  }
+
+  /**
+   * Days this month that have sales logged but no weather — everything
+   * recorded before the lookup existed.
+   */
+  const missingWeather = useMemo(
+    () =>
+      monthRows
+        .filter(
+          (r) =>
+            !r.sales.weather &&
+            (r.sales.temp_f === null || r.sales.temp_f === undefined),
+        )
+        .map((r) => r.sales)
+        .sort((a, b) => a.work_date.localeCompare(b.work_date)),
+    [monthRows],
+  );
+
+  /** Backfill every weather-less day this month in one request. */
+  async function fillMonthWeather() {
+    if (missingWeather.length === 0) return;
+    setFillBusy(true);
+    const first = missingWeather[0].work_date;
+    const last = missingWeather[missingWeather.length - 1].work_date;
+    const found = await fetchRangeWeather(first, last).catch(
+      () => new Map<string, { weather: Weather; temp_f: number }>(),
+    );
+    const rows = missingWeather
+      .filter((sale) => found.has(sale.work_date))
+      .map((sale) => ({
+        ...sale,
+        weather: found.get(sale.work_date)!.weather,
+        temp_f: found.get(sale.work_date)!.temp_f,
+        updated_at: new Date().toISOString(),
+      }));
+    if (rows.length === 0) {
+      notify("No weather available for those days");
+      setFillBusy(false);
+      return;
+    }
+    const { error } = await supabase.from("daily_sales").upsert(rows);
+    if (error) {
+      notify(`Couldn't fill: ${error.message}`);
+    } else {
+      await onChange();
+      const missed = missingWeather.length - rows.length;
+      notify(
+        `Weather filled for ${rows.length} day${rows.length === 1 ? "" : "s"}` +
+          (missed > 0 ? ` · ${missed} unavailable` : ""),
+      );
+    }
+    setFillBusy(false);
   }
 
   function closeDay() {
@@ -748,6 +802,21 @@ export function ProfitView({
           ),
         )}
       </div>
+
+      {missingWeather.length > 0 && (
+        <p className="-mt-1 text-center text-[10px] text-muted/80">
+          {missingWeather.length} day{missingWeather.length === 1 ? "" : "s"} this
+          month {missingWeather.length === 1 ? "has" : "have"} no weather.{" "}
+          <button
+            type="button"
+            disabled={fillBusy}
+            onClick={fillMonthWeather}
+            className="font-semibold text-charcoal underline underline-offset-2 transition hover:text-muted disabled:opacity-50"
+          >
+            {fillBusy ? "Filling…" : "Fill them"}
+          </button>
+        </p>
+      )}
 
       {monthRows.some((r) => r.sales.mix_source === "copacker") && (
         <p className="-mt-1 text-center text-[10px] text-muted/80">

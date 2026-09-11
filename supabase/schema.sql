@@ -83,6 +83,9 @@ create table public.settings (
   super_cost numeric(6,3) not null default 2.61,
   topping_cost numeric(6,3) not null default 0.50,
   landlord_pct numeric(5,2) not null default 10,
+  -- Dated changes to the landlord's share: [{"from":"YYYY-MM-DD","pct":8}].
+  -- landlord_pct is the rate before the earliest entry.
+  landlord_rate_changes jsonb not null default '[]'::jsonb,
   monthly_rent numeric(10,2) not null default 3500,
   mix_own_cost numeric(6,3) not null default 0.11,
   mix_copacker_cost numeric(6,3) not null default 0.22,

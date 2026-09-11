@@ -80,13 +80,21 @@ export type InventoryDay = {
   updated_at: string;
 };
 
+/** A dated change to the landlord's share, e.g. 10% -> 8% on 2026-09-16. */
+export type LandlordRateChange = {
+  from: string; // YYYY-MM-DD, inclusive
+  pct: number;
+};
+
 export type Settings = {
   id: number;
   mini_cost: number;
   regular_cost: number;
   super_cost: number;
   topping_cost: number;
+  /** The share in force before the earliest entry in landlord_rate_changes. */
   landlord_pct: number;
+  landlord_rate_changes: LandlordRateChange[];
   monthly_rent: number;
   /** Mix cost per ounce, ours vs the co-packer's. */
   mix_own_cost: number;
@@ -105,6 +113,7 @@ export const DEFAULT_SETTINGS: Settings = {
   super_cost: 2.61,
   topping_cost: 0.5,
   landlord_pct: 10,
+  landlord_rate_changes: [],
   monthly_rent: 3500,
   mix_own_cost: 0.11,
   mix_copacker_cost: 0.22,
@@ -200,6 +209,8 @@ export function parseSquareReport(text: string): ParsedSquareReport {
 
 export type DayProfit = {
   cogs: number;
+  /** The landlord share actually applied to this day, as a percentage. */
+  landlordPct: number;
   /** Extra the co-packer's mix cost that day; 0 on our own-mix days. */
   mixUplift: number;
   labor: number;
@@ -207,6 +218,27 @@ export type DayProfit = {
   landlordShare: number; // shown separately, never subtracted from profit
   afterLandlord: number;
 };
+
+/**
+ * The landlord's share in force on a given day: the latest dated change at or
+ * before it, or the base rate when none applies. Editing a future rate can
+ * never reprice a day already closed.
+ */
+export function landlordPctFor(dateStr: string, settings: Settings): number {
+  const changes = Array.isArray(settings.landlord_rate_changes)
+    ? settings.landlord_rate_changes
+    : [];
+  let pct = Number(settings.landlord_pct);
+  let best = "";
+  for (const c of changes) {
+    if (!c || typeof c.from !== "string" || !Number.isFinite(Number(c.pct))) continue;
+    if (c.from <= dateStr && c.from >= best) {
+      best = c.from;
+      pct = Number(c.pct);
+    }
+  }
+  return pct;
+}
 
 /** Netish profit for one day. Labor = that day's wages (hours × rate). */
 export function dayProfit(
@@ -234,11 +266,11 @@ export function dayProfit(
   const profit = round2(
     Number(sales.net_sales) - cogs - labor - Number(sales.fees),
   );
-  const landlordShare = round2(
-    (Number(sales.net_sales) * Number(settings.landlord_pct)) / 100,
-  );
+  const landlordPct = landlordPctFor(sales.work_date, settings);
+  const landlordShare = round2((Number(sales.net_sales) * landlordPct) / 100);
   return {
     cogs,
+    landlordPct,
     mixUplift,
     labor: round2(labor),
     profit,

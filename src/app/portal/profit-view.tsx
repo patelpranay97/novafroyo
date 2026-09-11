@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   type DailySales,
+  type LandlordRateChange,
   type MixSource,
   type Weather,
   type DayProfit,
@@ -53,7 +54,7 @@ const COST_FIELDS = [
   ["regular_cost", "Regular (8oz) cost"],
   ["super_cost", "Super (10oz) cost"],
   ["topping_cost", "Extra topping cost"],
-  ["landlord_pct", "Landlord share %"],
+  ["landlord_pct", "Landlord share % (base)"],
   ["monthly_rent", "Monthly rent $"],
   ["mix_own_cost", "Our mix $/oz"],
   ["mix_copacker_cost", "Co-packer mix $/oz"],
@@ -267,6 +268,29 @@ export function ProfitView({
       toppings: monthRows.reduce((a, r) => a + r.sales.toppings, 0),
     };
   }, [monthRows]);
+
+  // Supabase returns every column it has, with nulls — so a row that lacks the
+  // key entirely means the column itself is absent and the migration is unrun.
+  // Without this the whole feature degrades silently: nothing saves, nothing
+  // draws, and no part of the UI says why.
+  const missingColumns = useMemo(() => {
+    const row = sales[0];
+    if (!row) return [] as string[];
+    return (["mix_source", "weather", "temp_f"] as const).filter(
+      (c) => !(c in row),
+    );
+  }, [sales]);
+
+  // A month can straddle a rate change, so the note names every rate it used
+  // rather than asserting the current one applied all month.
+  const landlordRateLabel = useMemo(() => {
+    const rates = [...new Set(monthRows.map((r) => r.p.landlordPct))].sort(
+      (a, b) => a - b,
+    );
+    if (rates.length === 0) return `${Number(settings.landlord_pct)}%`;
+    if (rates.length === 1) return `${rates[0]}%`;
+    return `${rates[0]}–${rates[rates.length - 1]}%`;
+  }, [monthRows, settings.landlord_pct]);
 
   // What's actually left after the landlord's cut and the month's rent.
   const bottomLine = round2(
@@ -588,6 +612,42 @@ export function ProfitView({
     return dayProfit(temp, settings, laborByDate.get(selDate) ?? 0);
   }, [selDate, form, settings, laborByDate]);
 
+  async function saveRateChanges(next: LandlordRateChange[]) {
+    const sorted = [...next].sort((a, b) => a.from.localeCompare(b.from));
+    const { error } = await supabase
+      .from("settings")
+      .update({
+        landlord_rate_changes: sorted,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", 1);
+    if (error) {
+      notify(`Couldn't save: ${error.message}`);
+      return;
+    }
+    await onChange();
+    notify("Landlord rates updated");
+  }
+
+  function addRateChange(form: HTMLFormElement) {
+    const data = new FormData(form);
+    const from = String(data.get("from") ?? "");
+    const pct = Number(data.get("pct"));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) {
+      notify("Pick a start date");
+      return;
+    }
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      notify("Percentage has to be between 0 and 100");
+      return;
+    }
+    const existing = (settings.landlord_rate_changes ?? []).filter(
+      (c) => c.from !== from,
+    );
+    void saveRateChanges([...existing, { from, pct }]);
+    form.reset();
+  }
+
   async function saveSetting(
     key: (typeof COST_FIELDS)[number][0],
     input: HTMLInputElement,
@@ -629,6 +689,20 @@ export function ProfitView({
 
   return (
     <div className="flex flex-col gap-5">
+      {missingColumns.length > 0 && (
+        <Card className="border-[#a04a4a]/40">
+          <p className="text-xs leading-relaxed text-charcoal">
+            <span className="font-semibold">Mix and weather aren&apos;t saving.</span>{" "}
+            This database is missing {missingColumns.join(", ")} — run{" "}
+            <code className="bg-charcoal/5 px-1">
+              supabase/migration-mix-weather.sql
+            </code>{" "}
+            in the Supabase SQL Editor. Until then the calendar can&apos;t show
+            weather and co-packer days are priced as our own mix.
+          </p>
+        </Card>
+      )}
+
       {/* Month navigation */}
       <div className="flex items-center justify-between gap-2">
         <button
@@ -705,7 +779,7 @@ export function ProfitView({
           Profit = net sales − cups cost ({fmtMoney(totals.cogs)}) − wages (
           {fmtMoney(totals.labor)}) − card fees ({fmtMoney(totals.fees)}).
           <br />
-          Landlord share ({Number(settings.landlord_pct)}%):{" "}
+          Landlord share ({landlordRateLabel}):{" "}
           {fmtMoney(totals.landlord)} — after it:{" "}
           {fmtMoney(round2(totals.profit - totals.landlord))}
           <br />
@@ -803,7 +877,7 @@ export function ProfitView({
         )}
       </div>
 
-      {missingWeather.length > 0 && (
+      {missingColumns.length === 0 && missingWeather.length > 0 && (
         <p className="-mt-1 text-center text-[10px] text-muted/80">
           {missingWeather.length} day{missingWeather.length === 1 ? "" : "s"} this
           month {missingWeather.length === 1 ? "has" : "have"} no weather.{" "}
@@ -1061,9 +1135,99 @@ export function ProfitView({
               </label>
             ))}
           </div>
+          <div className="mt-4 border-t border-charcoal/10 pt-3">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+              Landlord rate changes
+            </p>
+            <p className="mt-1 text-[10px] leading-relaxed text-muted/70">
+              Each day is billed at the rate in force that day, so adding a
+              change here never reprices a month already closed.
+            </p>
+            {(settings.landlord_rate_changes ?? []).length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1">
+                {[...(settings.landlord_rate_changes ?? [])]
+                  .sort((a, b) => a.from.localeCompare(b.from))
+                  .map((c) => (
+                    <li
+                      key={c.from}
+                      className="flex items-center justify-between gap-2 text-xs"
+                    >
+                      <span className="text-muted">
+                        From{" "}
+                        <span className="font-semibold text-charcoal">
+                          {parseDateStr(c.from).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>{" "}
+                        · <span className="font-semibold text-charcoal">{c.pct}%</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void saveRateChanges(
+                            (settings.landlord_rate_changes ?? []).filter(
+                              (x) => x.from !== c.from,
+                            ),
+                          )
+                        }
+                        aria-label={`Remove the ${c.pct}% rate starting ${c.from}`}
+                        className="text-muted transition hover:text-[#a04a4a]"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            )}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                addRateChange(e.currentTarget);
+              }}
+              className="mt-2 flex items-end gap-2"
+            >
+              <label className="flex flex-1 flex-col gap-1">
+                <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+                  From
+                </span>
+                <input
+                  type="date"
+                  name="from"
+                  required
+                  aria-label="Rate change start date"
+                  className={inputCls}
+                />
+              </label>
+              <label className="flex w-16 flex-col gap-1">
+                <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+                  %
+                </span>
+                <input
+                  type="number"
+                  name="pct"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  required
+                  placeholder="8"
+                  aria-label="New landlord share percentage"
+                  className={inputCls}
+                />
+              </label>
+              <button
+                type="submit"
+                className="border border-charcoal px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-charcoal transition hover:bg-charcoal hover:text-cream"
+              >
+                Add
+              </button>
+            </form>
+          </div>
+
           <p className="mt-3 text-[10px] leading-relaxed text-muted/70">
-            Seeded from your cost model (Nova Froyo Ruby.xlsx). Changes apply
-            to every day, past and future.
+            Seeded from your cost model (Nova Froyo Ruby.xlsx). Cup and mix
+            costs apply to every day, past and future.
           </p>
         </Card>
       </details>

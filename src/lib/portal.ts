@@ -47,6 +47,9 @@ export type TipDay = {
   updated_at: string;
 };
 
+export type MixSource = "own" | "copacker";
+export type Weather = "sunny" | "cloudy" | "rain" | "snow";
+
 export type DailySales = {
   work_date: string; // YYYY-MM-DD
   net_sales: number;
@@ -56,6 +59,10 @@ export type DailySales = {
   regular_cups: number;
   super_cups: number;
   toppings: number;
+  /** Which mix ran that day; absent on rows older than migration-mix-weather. */
+  mix_source?: MixSource;
+  weather?: Weather | null;
+  temp_f?: number | null;
   updated_at: string;
 };
 
@@ -81,6 +88,13 @@ export type Settings = {
   topping_cost: number;
   landlord_pct: number;
   monthly_rent: number;
+  /** Mix cost per ounce, ours vs the co-packer's. */
+  mix_own_cost: number;
+  mix_copacker_cost: number;
+  /** Ounces per cup — how the per-ounce mix difference turns into a cup cost. */
+  mini_oz: number;
+  regular_oz: number;
+  super_oz: number;
   updated_at: string;
 };
 
@@ -92,6 +106,11 @@ export const DEFAULT_SETTINGS: Settings = {
   topping_cost: 0.5,
   landlord_pct: 10,
   monthly_rent: 3500,
+  mix_own_cost: 0.11,
+  mix_copacker_cost: 0.22,
+  mini_oz: 6,
+  regular_oz: 8,
+  super_oz: 10,
   updated_at: "",
 };
 
@@ -181,6 +200,8 @@ export function parseSquareReport(text: string): ParsedSquareReport {
 
 export type DayProfit = {
   cogs: number;
+  /** Extra the co-packer's mix cost that day; 0 on our own-mix days. */
+  mixUplift: number;
   labor: number;
   profit: number; // net_sales - cogs - labor - fees (before landlord share)
   landlordShare: number; // shown separately, never subtracted from profit
@@ -193,12 +214,23 @@ export function dayProfit(
   settings: Settings,
   labor: number,
 ): DayProfit {
-  const cogs = round2(
+  const base =
     Number(sales.mini_cups) * Number(settings.mini_cost) +
       Number(sales.regular_cups) * Number(settings.regular_cost) +
       Number(sales.super_cups) * Number(settings.super_cost) +
-      Number(sales.toppings) * Number(settings.topping_cost),
-  );
+      Number(sales.toppings) * Number(settings.topping_cost);
+  // The per-cup costs above are priced on our own mix. A co-packer day pays
+  // the per-ounce difference on every ounce served, on top of them.
+  const mixUplift =
+    sales.mix_source === "copacker"
+      ? round2(
+          (Number(settings.mix_copacker_cost) - Number(settings.mix_own_cost)) *
+            (Number(sales.mini_cups) * Number(settings.mini_oz) +
+              Number(sales.regular_cups) * Number(settings.regular_oz) +
+              Number(sales.super_cups) * Number(settings.super_oz)),
+        )
+      : 0;
+  const cogs = round2(base + mixUplift);
   const profit = round2(
     Number(sales.net_sales) - cogs - labor - Number(sales.fees),
   );
@@ -207,6 +239,7 @@ export function dayProfit(
   );
   return {
     cogs,
+    mixUplift,
     labor: round2(labor),
     profit,
     landlordShare,

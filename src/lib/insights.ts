@@ -5,6 +5,8 @@
 
 import {
   type DailySales,
+  type MixSource,
+  type Weather,
   type Employee,
   type Settings,
   type Shift,
@@ -683,6 +685,124 @@ export function rentProgress(
     earned,
     coveredOn,
     remaining: round2(Math.max(0, rent - earned)),
+  };
+}
+
+// ---------- Mix source + weather comparisons ----------
+
+export type DaySplit = {
+  key: string;
+  label: string;
+  days: number;
+  avgNet: number;
+  avgProfit: number;
+  /** profit as a share of net sales on those days; null when nothing sold */
+  margin: number | null;
+};
+
+function summarize(
+  key: string,
+  label: string,
+  rows: DailySales[],
+  settings: Settings,
+  labor: Map<string, number>,
+): DaySplit {
+  let net = 0, profit = 0;
+  for (const s of rows) {
+    net += Number(s.net_sales);
+    profit += dayProfit(s, settings, labor.get(s.work_date) ?? 0).profit;
+  }
+  return {
+    key,
+    label,
+    days: rows.length,
+    avgNet: rows.length > 0 ? round2(net / rows.length) : 0,
+    avgProfit: rows.length > 0 ? round2(profit / rows.length) : 0,
+    margin: net > 0 ? round2((profit / net) * 100) : null,
+  };
+}
+
+const MIX_LABELS: Record<MixSource, string> = {
+  own: "Our mix",
+  copacker: "Co-packer",
+};
+
+/**
+ * Own-mix days vs co-packer days. Only returns something when both kinds have
+ * been logged — a comparison against nothing is not a comparison.
+ */
+export function mixComparison(
+  sales: DailySales[],
+  settings: Settings,
+  labor: Map<string, number>,
+): { own: DaySplit; copacker: DaySplit; extraMixCost: number } | null {
+  const own = sales.filter((s) => (s.mix_source ?? "own") === "own");
+  const copacker = sales.filter((s) => s.mix_source === "copacker");
+  if (own.length === 0 || copacker.length === 0) return null;
+  const extraMixCost = round2(
+    copacker.reduce(
+      (a, s) => a + dayProfit(s, settings, labor.get(s.work_date) ?? 0).mixUplift,
+      0,
+    ),
+  );
+  return {
+    own: summarize("own", MIX_LABELS.own, own, settings, labor),
+    copacker: summarize("copacker", MIX_LABELS.copacker, copacker, settings, labor),
+    extraMixCost,
+  };
+}
+
+const WEATHER_LABELS: Record<Weather, string> = {
+  sunny: "Sunny",
+  cloudy: "Cloudy",
+  rain: "Rain",
+  snow: "Snow",
+};
+const WEATHER_ORDER: Weather[] = ["sunny", "cloudy", "rain", "snow"];
+
+/** Per-condition averages, in a fixed order, skipping conditions never logged. */
+export function weatherSplits(
+  sales: DailySales[],
+  settings: Settings,
+  labor: Map<string, number>,
+): DaySplit[] {
+  return WEATHER_ORDER.map((w) =>
+    summarize(w, WEATHER_LABELS[w], sales.filter((s) => s.weather === w), settings, labor),
+  ).filter((d) => d.days > 0);
+}
+
+/**
+ * Averages by 10°F band. Bands are labelled by their floor ("70s") and only
+ * those with a logged day appear, so a sparse winter doesn't draw empty bars.
+ */
+export function tempSplits(
+  sales: DailySales[],
+  settings: Settings,
+  labor: Map<string, number>,
+): DaySplit[] {
+  const buckets = new Map<number, DailySales[]>();
+  for (const s of sales) {
+    if (s.temp_f === null || s.temp_f === undefined) continue;
+    const floor = Math.floor(Number(s.temp_f) / 10) * 10;
+    const list = buckets.get(floor);
+    if (list) list.push(s);
+    else buckets.set(floor, [s]);
+  }
+  return [...buckets.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([floor, rows]) =>
+      summarize(String(floor), `${floor}s`, rows, settings, labor),
+    );
+}
+
+/** Days carrying a weather note — what the weather cards can actually speak to. */
+export function weatherCoverage(sales: DailySales[]): {
+  logged: number;
+  total: number;
+} {
+  return {
+    logged: sales.filter((s) => s.weather || s.temp_f !== null && s.temp_f !== undefined).length,
+    total: sales.length,
   };
 }
 

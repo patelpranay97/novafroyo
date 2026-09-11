@@ -68,6 +68,11 @@ create table public.daily_sales (
   regular_cups integer not null default 0 check (regular_cups >= 0),
   super_cups integer not null default 0 check (super_cups >= 0),
   toppings integer not null default 0 check (toppings >= 0),
+  mix_source text not null default 'own'
+    check (mix_source in ('own', 'copacker')),
+  weather text
+    check (weather is null or weather in ('sunny', 'cloudy', 'rain', 'snow')),
+  temp_f integer check (temp_f is null or (temp_f > -60 and temp_f < 130)),
   updated_at timestamptz not null default now()
 );
 
@@ -79,6 +84,11 @@ create table public.settings (
   topping_cost numeric(6,3) not null default 0.50,
   landlord_pct numeric(5,2) not null default 10,
   monthly_rent numeric(10,2) not null default 3500,
+  mix_own_cost numeric(6,3) not null default 0.11,
+  mix_copacker_cost numeric(6,3) not null default 0.22,
+  mini_oz numeric(5,2) not null default 6,
+  regular_oz numeric(5,2) not null default 8,
+  super_oz numeric(5,2) not null default 10,
   updated_at timestamptz not null default now()
 );
 

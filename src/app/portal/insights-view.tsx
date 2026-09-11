@@ -9,6 +9,7 @@ import {
   type TipDay,
   fmtMoney,
   fmtHours,
+  round2,
   parseDateStr,
   toDateStr,
 } from "@/lib/portal";
@@ -16,6 +17,10 @@ import {
   breakEven,
   earningsTotals,
   employeeStats,
+  mixComparison,
+  tempSplits,
+  weatherCoverage,
+  weatherSplits,
   laborByDate,
   monthTotals,
   pctDelta,
@@ -23,6 +28,7 @@ import {
   rentProgress,
   salesByWeekday,
   tipsByWeekday,
+  type DaySplit,
   unpaidAging,
   weeklyTrend,
 } from "@/lib/insights";
@@ -34,6 +40,7 @@ const HUE_TIPS = "#2d4f9e"; // aegean
 const HUE_PAYROLL = "#b07d3f"; // honey
 const HUE_SALES = "#2d4f9e"; // aegean
 const HUE_PROFIT = "#5a7d4f"; // pistachio
+const HUE_COPACKER = "#8a5a2b"; // caramel — matches the calendar's co-packer dot
 
 type Props = {
   employees: Employee[];
@@ -69,6 +76,11 @@ function Delta({ pct }: { pct: number | null }) {
   );
 }
 
+
+/** One line of detail behind a weather/temperature bar. */
+function splitDetail(d: DaySplit): string {
+  return `${d.label} · avg ${fmtMoney(d.avgNet)} sales · ${fmtMoney(d.avgProfit)} profit · ${d.days} day${d.days === 1 ? "" : "s"}`;
+}
 
 function Tile({
   label,
@@ -144,6 +156,14 @@ export function InsightsView({
   const be = breakEven(sales, settings, labor);
   const salesWeekdays = salesByWeekday(sales, settings, labor);
   const salesWeekdayHasBars = salesWeekdays.some((w) => w.avgNet > 0);
+  const mix = mixComparison(sales, settings, labor);
+  const weather = weatherSplits(sales, settings, labor);
+  const temps = tempSplits(sales, settings, labor);
+  const wxCoverage = weatherCoverage(sales);
+  // A single day is an anecdote; say so rather than drawing a confident bar.
+  const thinSplits = [...weather, ...temps]
+    .filter((d) => d.days === 1)
+    .map((d) => d.label);
   const bestSalesDay = sales.reduce<DailySales | null>(
     (best, s) =>
       best === null || Number(s.net_sales) > Number(best.net_sales) ? s : best,
@@ -312,6 +332,112 @@ export function InsightsView({
               return `${w.label} · avg ${fmtMoney(w.avgNet)} sales · ${fmtMoney(w.avgProfit)} profit · ${w.daysCounted} day${w.daysCounted === 1 ? "" : "s"}`;
             }}
           />
+        </Card>
+      )}
+
+      {/* Our mix vs the co-packer's */}
+      {mix && (
+        <Card>
+          <SectionLabel>Our mix vs the co-packer&apos;s</SectionLabel>
+          <p className="mb-3 mt-1 text-[10px] text-muted/80">
+            Same shop, same menu — only the mix changed.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {[mix.own, mix.copacker].map((d, i) => (
+              <div
+                key={d.key}
+                className="border border-charcoal/15 px-3 py-2 text-center"
+              >
+                <p className="flex items-center justify-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+                  {i === 1 && (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: HUE_COPACKER }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  {d.label}
+                </p>
+                <p
+                  className="mt-1 font-display text-lg"
+                  style={{ color: i === 1 ? HUE_COPACKER : HUE_PROFIT }}
+                >
+                  {fmtMoney(d.avgProfit)}
+                </p>
+                <p className="text-[10px] text-muted">profit/day</p>
+                <p className="mt-1 text-[10px] text-muted/80">
+                  {d.days} day{d.days === 1 ? "" : "s"}
+                  {d.margin !== null && <> · {d.margin}% margin</>}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-muted">
+            The co-packer&apos;s mix has cost{" "}
+            <span className="font-semibold text-charcoal">
+              {fmtMoney(mix.extraMixCost)}
+            </span>{" "}
+            extra across {mix.copacker.days} day
+            {mix.copacker.days === 1 ? "" : "s"} — about{" "}
+            {fmtMoney(round2(mix.extraMixCost / Math.max(1, mix.copacker.days)))} a
+            day at {fmtMoney(Number(settings.mix_copacker_cost))}/oz against{" "}
+            {fmtMoney(Number(settings.mix_own_cost))}/oz for ours.
+            {mix.own.avgNet > 0 && mix.copacker.avgNet > 0 && (
+              <>
+                {" "}
+                Sales ran {fmtMoney(mix.copacker.avgNet)}/day on co-packer days
+                vs {fmtMoney(mix.own.avgNet)} on ours
+                {Math.abs(mix.copacker.avgNet - mix.own.avgNet) /
+                  mix.own.avgNet <
+                0.05
+                  ? " — close enough to call the difference in profit a cost story, not a sales one."
+                  : ", so the profit gap is part cost and part traffic."}
+              </>
+            )}
+          </p>
+        </Card>
+      )}
+
+      {/* Weather */}
+      {(weather.length > 0 || temps.length > 0) && (
+        <Card>
+          <SectionLabel>How weather moves sales</SectionLabel>
+          <p className="mb-3 mt-1 text-[10px] text-muted/80">
+            Average sales per day — tap a bar for detail.
+            {wxCoverage.logged < wxCoverage.total && (
+              <>
+                {" "}
+                Logged on {wxCoverage.logged} of {wxCoverage.total} days.
+              </>
+            )}
+          </p>
+          {weather.length > 0 && (
+            <ColumnChart
+              ariaLabel="Average sales for each weather condition"
+              groups={weather.map((w) => ({ label: w.label, values: [w.avgNet] }))}
+              colors={[HUE_SALES]}
+              detail={(i) => splitDetail(weather[i])}
+            />
+          )}
+          {temps.length > 0 && (
+            <div className={weather.length > 0 ? "mt-4" : ""}>
+              <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+                By temperature
+              </p>
+              <ColumnChart
+                ariaLabel="Average sales for each temperature band"
+                groups={temps.map((t) => ({ label: t.label, values: [t.avgNet] }))}
+                colors={[HUE_SALES]}
+                detail={(i) => splitDetail(temps[i])}
+              />
+            </div>
+          )}
+          {thinSplits.length > 0 && (
+            <p className="mt-3 text-[10px] leading-relaxed text-muted/70">
+              {thinSplits.join(", ")} {thinSplits.length === 1 ? "has" : "have"}{" "}
+              only one day logged — not enough to read a pattern into yet.
+            </p>
+          )}
         </Card>
       )}
 

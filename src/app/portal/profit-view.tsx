@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   type DailySales,
+  type MixSource,
+  type Weather,
   type DayProfit,
   type Settings,
   type Shift,
@@ -52,6 +54,11 @@ const COST_FIELDS = [
   ["topping_cost", "Extra topping cost"],
   ["landlord_pct", "Landlord share %"],
   ["monthly_rent", "Monthly rent $"],
+  ["mix_own_cost", "Our mix $/oz"],
+  ["mix_copacker_cost", "Co-packer mix $/oz"],
+  ["mini_oz", "Mini cup oz"],
+  ["regular_oz", "Regular cup oz"],
+  ["super_oz", "Super cup oz"],
 ] as const;
 
 const MONEY_FIELDS = [
@@ -60,6 +67,18 @@ const MONEY_FIELDS = [
   ["fees", "Fees $"],
   ["tips", "Tips $"],
 ] as const;
+
+const MIX_OPTIONS: { value: MixSource; label: string; hint: string }[] = [
+  { value: "own", label: "Our mix", hint: "made in-house" },
+  { value: "copacker", label: "Co-packer", hint: "costs more per oz" },
+];
+
+const WEATHER_OPTIONS: { value: Weather; label: string; icon: string }[] = [
+  { value: "sunny", label: "Sunny", icon: "☀" },
+  { value: "cloudy", label: "Cloudy", icon: "☁" },
+  { value: "rain", label: "Rain", icon: "☂" },
+  { value: "snow", label: "Snow", icon: "❄" },
+];
 
 const COUNT_FIELDS = [
   ["mini_cups", "Mini"],
@@ -78,11 +97,15 @@ type FormState = {
   regular_cups: string;
   super_cups: string;
   toppings: string;
+  mix_source: MixSource;
+  weather: Weather | "";
+  temp_f: string;
 };
 
 const emptyForm: FormState = {
   net_sales: "", tax: "", fees: "", tips: "",
   mini_cups: "", regular_cups: "", super_cups: "", toppings: "",
+  mix_source: "own", weather: "", temp_f: "",
 };
 
 function formFrom(
@@ -100,6 +123,9 @@ function formFrom(
     regular_cups: String(sale.regular_cups),
     super_cups: String(sale.super_cups),
     toppings: String(sale.toppings),
+    mix_source: sale.mix_source ?? "own",
+    weather: sale.weather ?? "",
+    temp_f: sale.temp_f === null || sale.temp_f === undefined ? "" : String(sale.temp_f),
   };
 }
 
@@ -213,6 +239,7 @@ export function ProfitView({
       labor: sum((r) => r.p.labor),
       fees: sum((r) => Number(r.sales.fees)),
       landlord: sum((r) => r.p.landlordShare),
+      mixUplift: sum((r) => r.p.mixUplift),
       cups: monthRows.reduce(
         (a, r) =>
           a +
@@ -311,6 +338,10 @@ export function ProfitView({
       super_cups:
         p.super_cups !== null ? String(p.super_cups) : prev.super_cups,
       toppings: p.toppings !== null ? String(p.toppings) : prev.toppings,
+      // Not in the Square email — whatever was already selected stands.
+      mix_source: prev.mix_source,
+      weather: prev.weather,
+      temp_f: prev.temp_f,
     }));
     if (p.date && p.date !== selDate) {
       setSelDate(p.date);
@@ -363,13 +394,35 @@ export function ProfitView({
     }
 
     const allZero = Object.values(vals).every((v) => v === 0);
-    const salesRes = allZero
+    const temp = form.temp_f.trim() === "" ? null : Math.round(Number(form.temp_f));
+    if (temp !== null && !Number.isFinite(temp)) {
+      notify("Temperature has to be a number");
+      setBusy(false);
+      return;
+    }
+    const extras = {
+      mix_source: form.mix_source,
+      weather: form.weather === "" ? null : form.weather,
+      temp_f: temp,
+    };
+    let salesRes = allZero
       ? await supabase.from("daily_sales").delete().eq("work_date", selDate)
       : await supabase.from("daily_sales").upsert({
           work_date: selDate,
           ...vals,
+          ...extras,
           updated_at: new Date().toISOString(),
         });
+    // Mix source and weather only exist after migration-mix-weather.sql; save
+    // the rest rather than losing the day's numbers over a missing column.
+    if (!allZero && salesRes.error?.code === "PGRST204") {
+      salesRes = await supabase.from("daily_sales").upsert({
+        work_date: selDate,
+        ...vals,
+        updated_at: new Date().toISOString(),
+      });
+      if (!salesRes.error) notify("Saved — run migration-mix-weather.sql for mix/weather");
+    }
 
     const err = salesRes.error ?? tipError;
     if (err) {
@@ -401,6 +454,7 @@ export function ProfitView({
       regular_cups: count(form.regular_cups),
       super_cups: count(form.super_cups),
       toppings: count(form.toppings),
+      mix_source: form.mix_source,
       updated_at: "",
     };
     if (
@@ -573,14 +627,23 @@ export function ProfitView({
                   : ""
               }`}
             >
-              <span
-                className={`self-start px-0.5 text-[11px] ${
-                  dateStr === todayStr
-                    ? "font-bold text-charcoal"
-                    : "text-charcoal-soft"
-                }`}
-              >
-                {Number(dateStr.slice(8))}
+              <span className="flex w-full items-start justify-between px-0.5">
+                <span
+                  className={`text-[11px] ${
+                    dateStr === todayStr
+                      ? "font-bold text-charcoal"
+                      : "text-charcoal-soft"
+                  }`}
+                >
+                  {Number(dateStr.slice(8))}
+                </span>
+                {salesByDate.get(dateStr)?.mix_source === "copacker" && (
+                  <span
+                    className="mt-1 h-1.5 w-1.5 rounded-full bg-[#8a5a2b]"
+                    title="Co-packer mix"
+                    aria-label="Co-packer mix"
+                  />
+                )}
               </span>
               {profitByDate.has(dateStr) && (
                 <span
@@ -597,6 +660,18 @@ export function ProfitView({
           ),
         )}
       </div>
+
+      {monthRows.some((r) => r.sales.mix_source === "copacker") && (
+        <p className="-mt-1 text-center text-[10px] text-muted/80">
+          <span
+            className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-[#8a5a2b] align-middle"
+            aria-hidden="true"
+          />
+          Co-packer mix ran{" "}
+          {monthRows.filter((r) => r.sales.mix_source === "copacker").length} of{" "}
+          {monthRows.length} days — {fmtMoney(totals.mixUplift)} in extra mix cost.
+        </p>
+      )}
 
       {/* Charts — only once there's data this month */}
       {monthRows.length > 0 && (
@@ -906,6 +981,91 @@ export function ProfitView({
               </div>
             </div>
 
+            <div>
+              <SectionLabel>Mix that day</SectionLabel>
+              <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Mix used that day">
+                {MIX_OPTIONS.map((o) => {
+                  const on = form.mix_source === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() =>
+                        setForm((prev) => ({ ...prev, mix_source: o.value }))
+                      }
+                      className={`flex flex-col items-center gap-0.5 border px-2 py-2 text-xs transition ${
+                        on
+                          ? "border-charcoal bg-charcoal text-cream"
+                          : "border-charcoal/25 text-muted hover:border-charcoal/60"
+                      }`}
+                    >
+                      <span className="font-semibold">{o.label}</span>
+                      <span className={`text-[9px] ${on ? "text-cream/70" : "text-muted/70"}`}>
+                        {o.hint}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <SectionLabel>Weather</SectionLabel>
+              <div className="mt-2 flex items-stretch gap-2">
+                <div className="flex flex-1 gap-1" role="radiogroup" aria-label="Weather that day">
+                  {WEATHER_OPTIONS.map((o) => {
+                    const on = form.weather === o.value;
+                    return (
+                      <button
+                        key={o.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        aria-label={o.label}
+                        title={o.label}
+                        onClick={() =>
+                          // Tapping the active one clears it.
+                          setForm((prev) => ({
+                            ...prev,
+                            weather: prev.weather === o.value ? "" : o.value,
+                          }))
+                        }
+                        className={`flex flex-1 flex-col items-center gap-0.5 border py-1.5 transition ${
+                          on
+                            ? "border-charcoal bg-charcoal text-cream"
+                            : "border-charcoal/25 text-muted hover:border-charcoal/60"
+                        }`}
+                      >
+                        <span aria-hidden="true" className="text-sm leading-none">
+                          {o.icon}
+                        </span>
+                        <span className="text-[9px]">{o.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <label className="flex w-16 flex-col gap-1">
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+                    °F
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    step="1"
+                    placeholder="72"
+                    value={form.temp_f}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, temp_f: e.target.value }))
+                    }
+                    aria-label="High temperature in Fahrenheit"
+                    className={`${inputCls} h-full`}
+                  />
+                </label>
+              </div>
+            </div>
+
             {previewProfit && Number(form.net_sales) > 0 && (
               <p className="text-center text-xs text-muted">
                 Est. profit:{" "}
@@ -918,6 +1078,11 @@ export function ProfitView({
                   (cups {fmtMoney(previewProfit.cogs)} · wages{" "}
                   {fmtMoney(previewProfit.labor)})
                 </span>
+                {previewProfit.mixUplift > 0 && (
+                  <span className="mt-0.5 block text-[10px] text-[#8a5a2b]">
+                    Co-packer mix added {fmtMoney(previewProfit.mixUplift)} today
+                  </span>
+                )}
               </p>
             )}
 

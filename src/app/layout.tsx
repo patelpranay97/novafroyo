@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://www.novafroyo.com"),
   title: "Nova | Greek Frozen Yogurt | West Loop, Chicago",
   description:
-    "Nova is a Greek frozen yogurt shop inside Cone Chicago at 1047 W Madison St in the West Loop. Thick, tangy Greek froyo with fresh toppings. Open daily 5-10 PM.",
+    "Nova is a Greek frozen yogurt shop inside Cone Chicago at 1047 W Madison St in the West Loop. Thick, tangy Greek froyo with fresh toppings. Open daily 3-10 PM.",
   keywords: [
     "Greek frozen yogurt",
     "froyo",
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Nova | Greek Frozen Yogurt",
     description:
-      "Now open inside Cone Chicago in the West Loop. Thick, tangy Greek frozen yogurt, daily 5-10 PM.",
+      "Now open inside Cone Chicago in the West Loop. Thick, tangy Greek frozen yogurt, daily 3-10 PM.",
     url: "https://www.novafroyo.com",
     siteName: "Nova Greek Frozen Yogurt",
     locale: "en_US",
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Nova | Greek Frozen Yogurt",
     description:
-      "Now open inside Cone Chicago in the West Loop. Thick, tangy Greek frozen yogurt, daily 5-10 PM.",
+      "Now open inside Cone Chicago in the West Loop. Thick, tangy Greek frozen yogurt, daily 3-10 PM.",
   },
 };
 
@@ -103,7 +103,7 @@ const localBusinessJsonLd = {
       "Saturday",
       "Sunday",
     ],
-    opens: "17:00",
+    opens: "15:00",
     closes: "22:00",
   },
   hasMenu: "https://www.novafroyo.com/Nova%20Menu%20Summer%202026.pdf",

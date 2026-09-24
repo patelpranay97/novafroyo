@@ -4,7 +4,7 @@ import { StarIcon } from "./star-icon";
 
 const MARQUEE_ITEMS = [
   "Now Open",
-  "Daily 5–10 PM",
+  "Daily 3–10 PM",
   "Tangy. Thick. Greek.",
   "Est. 2026",
 ];
@@ -171,7 +171,7 @@ export default function Home() {
       {/* Phase chip — anticipation hook */}
       <div className="bg-cream py-8 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-[0.45em] text-muted">
-          Now open inside Cone Chicago · Daily 5–10 PM
+          Now open inside Cone Chicago · Daily 3–10 PM
         </p>
         <a
           href="https://maps.google.com/?q=1047+W+Madison+St,+Chicago,+IL+60607"

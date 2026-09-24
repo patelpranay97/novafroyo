@@ -81,7 +81,7 @@ export default async function Image() {
               marginTop: 4,
             }}
           >
-            Now Open · Daily 5–10 PM
+            Now Open · Daily 3–10 PM
           </div>
         </div>
       </div>

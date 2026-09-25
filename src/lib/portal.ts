@@ -327,6 +327,12 @@ export function fmtDayShort(dateStr: string): string {
   return `${DAYS_SHORT[(d.getDay() + 6) % 7]} ${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+/** "2026-09" -> "September 2026". */
+export function fmtMonth(prefix: string): string {
+  const [y, m] = prefix.split("-").map(Number);
+  return `${MONTHS[m - 1]} ${y}`;
+}
+
 export function fmtWeekRange(monday: Date): string {
   const sunday = addDays(monday, 6);
   const m1 = MONTHS[monday.getMonth()].slice(0, 3);

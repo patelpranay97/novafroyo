@@ -10,6 +10,7 @@ import {
   fmtDayShort,
   fmtHours,
   fmtMoney,
+  fmtMonth,
   dailyHourTipShares,
   fmtWeekRange,
   planPayout,
@@ -119,6 +120,31 @@ export function WeekView({
     () => round2(weekTipRows.reduce((sum, t) => sum + Number(t.amount), 0)),
     [weekTipRows],
   );
+
+  /**
+   * Payroll for the whole month(s) the viewed week sits in. A week that
+   * straddles a month boundary reports both rather than picking one — the
+   * hours genuinely belong to two payroll months.
+   */
+  const monthRollup = useMemo(() => {
+    const prefixes = [...new Set(weekDateStrs.map((d) => d.slice(0, 7)))];
+    return prefixes.map((prefix) => {
+      const mShifts = shifts.filter((s) => s.work_date.startsWith(prefix));
+      const unpaid = mShifts.filter((s) => !s.paid_at);
+      return {
+        prefix,
+        label: fmtMonth(prefix),
+        wages: sumPay(mShifts),
+        hours: sumHours(mShifts),
+        tips: round2(
+          tips
+            .filter((t) => t.work_date.startsWith(prefix))
+            .reduce((sum, t) => sum + Number(t.amount), 0),
+        ),
+        unpaid: sumPay(unpaid),
+      };
+    });
+  }, [shifts, tips, weekDateStrs]);
 
   const totalPayroll = useMemo(() => sumPay(weekShifts), [weekShifts]);
   const totalHours = useMemo(() => sumHours(weekShifts), [weekShifts]);
@@ -650,6 +676,30 @@ export function WeekView({
 
         </div>
       </details>
+
+      {/* Month to date — the week card above is one week; this is the bill
+          for the whole month the week belongs to. */}
+      {monthRollup.map((m) => (
+        <Card key={m.prefix}>
+          <div className="flex items-baseline justify-between gap-2">
+            <SectionLabel>{m.label} payroll</SectionLabel>
+            <span className="text-[10px] text-muted">{fmtHours(m.hours)}</span>
+          </div>
+          <p className="mt-1 font-display text-2xl">{fmtMoney(m.wages)}</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-muted">
+            Wages for the whole month
+            {m.tips > 0 && <> · {fmtMoney(m.tips)} in tips on top</>}
+            {m.unpaid > 0 && (
+              <>
+                {" · "}
+                <span className="font-semibold text-[#a04a4a]">
+                  {fmtMoney(m.unpaid)} still owed
+                </span>
+              </>
+            )}
+          </p>
+        </Card>
+      ))}
 
       <button type="button" onClick={copySummary} className={btnCls}>
         Copy week summary

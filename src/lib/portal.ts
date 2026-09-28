@@ -66,20 +66,6 @@ export type DailySales = {
   updated_at: string;
 };
 
-export type InventoryDay = {
-  work_date: string; // YYYY-MM-DD
-  batches_made: number;
-  batches_left: number;
-  kefir: number;
-  yogurt: number;
-  milk: number;
-  stabilizer: number;
-  milk_powder: number;
-  sugar: number;
-  note: string | null;
-  updated_at: string;
-};
-
 /** A dated change to the landlord's share, e.g. 10% -> 8% on 2026-09-16. */
 export type LandlordRateChange = {
   from: string; // YYYY-MM-DD, inclusive

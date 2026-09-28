@@ -57,7 +57,7 @@ do $$
 declare t text;
 begin
   foreach t in array array[
-    'employees','shifts','tips','schedule','daily_sales','settings','inventory'
+    'employees','shifts','tips','schedule','daily_sales','settings'
   ] loop
     execute format('drop policy if exists %I on public.%I', 'authenticated full access', t);
     execute format('drop policy if exists %I on public.%I', 'owner only', t);

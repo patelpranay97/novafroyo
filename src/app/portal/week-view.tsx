@@ -67,7 +67,8 @@ export function WeekView({
   const weekEnd = weekDateStrs[6];
 
   const weekShifts = useMemo(
-    () => shifts.filter((s) => s.work_date >= weekStart && s.work_date <= weekEnd),
+    () =>
+      shifts.filter((s) => s.work_date >= weekStart && s.work_date <= weekEnd),
     [shifts, weekStart, weekEnd],
   );
 
@@ -92,7 +93,10 @@ export function WeekView({
         const priorUnpaid = round2(
           sumPay(
             shifts.filter(
-              (s) => s.employee_id === empId && s.work_date < weekStart && !s.paid_at,
+              (s) =>
+                s.employee_id === empId &&
+                s.work_date < weekStart &&
+                !s.paid_at,
             ),
           ),
         );
@@ -113,7 +117,8 @@ export function WeekView({
   }, [weekShifts, shifts, empById, weekStart]);
 
   const weekTipRows = useMemo(
-    () => tips.filter((t) => t.work_date >= weekStart && t.work_date <= weekEnd),
+    () =>
+      tips.filter((t) => t.work_date >= weekStart && t.work_date <= weekEnd),
     [tips, weekStart, weekEnd],
   );
   const weekTips = useMemo(
@@ -128,22 +133,28 @@ export function WeekView({
    */
   const monthRollup = useMemo(() => {
     const prefixes = [...new Set(weekDateStrs.map((d) => d.slice(0, 7)))];
-    return prefixes.map((prefix) => {
-      const mShifts = shifts.filter((s) => s.work_date.startsWith(prefix));
-      const unpaid = mShifts.filter((s) => !s.paid_at);
-      return {
-        prefix,
-        label: fmtMonth(prefix),
-        wages: sumPay(mShifts),
-        hours: sumHours(mShifts),
-        tips: round2(
-          tips
-            .filter((t) => t.work_date.startsWith(prefix))
-            .reduce((sum, t) => sum + Number(t.amount), 0),
-        ),
-        unpaid: sumPay(unpaid),
-      };
-    });
+    return prefixes
+      .filter((prefix) =>
+        // A straddling week touches a month that may have no shifts yet;
+        // a "$0.00 October payroll" card is noise, not information.
+        shifts.some((s) => s.work_date.startsWith(prefix)),
+      )
+      .map((prefix) => {
+        const mShifts = shifts.filter((s) => s.work_date.startsWith(prefix));
+        const unpaid = mShifts.filter((s) => !s.paid_at);
+        return {
+          prefix,
+          label: fmtMonth(prefix),
+          wages: sumPay(mShifts),
+          hours: sumHours(mShifts),
+          tips: round2(
+            tips
+              .filter((t) => t.work_date.startsWith(prefix))
+              .reduce((sum, t) => sum + Number(t.amount), 0),
+          ),
+          unpaid: sumPay(unpaid),
+        };
+      });
   }, [shifts, tips, weekDateStrs]);
 
   const totalPayroll = useMemo(() => sumPay(weekShifts), [weekShifts]);
@@ -166,7 +177,11 @@ export function WeekView({
 
   // Cent-exact by-hours shares (sum equals the pot exactly).
   const hourShares = useMemo(
-    () => splitProportional(weekTips, rows.map((r) => r.hours)),
+    () =>
+      splitProportional(
+        weekTips,
+        rows.map((r) => r.hours),
+      ),
     [weekTips, rows],
   );
 
@@ -184,7 +199,9 @@ export function WeekView({
           Number(tips.find((t) => t.work_date === date)?.amount ?? 0),
         );
         const workers = new Set(
-          weekShifts.filter((s) => s.work_date === date).map((s) => s.employee_id),
+          weekShifts
+            .filter((s) => s.work_date === date)
+            .map((s) => s.employee_id),
         );
         return { date, amount, workerCount: workers.size };
       })
@@ -203,9 +220,7 @@ export function WeekView({
           wages: r.owed,
           isOwner: r.emp?.is_owner ?? false,
           target:
-            r.emp?.target_rate != null
-              ? Number(r.emp.target_rate)
-              : undefined,
+            r.emp?.target_rate != null ? Number(r.emp.target_rate) : undefined,
         })),
         weekTips,
         wageTarget,
@@ -282,8 +297,19 @@ export function WeekView({
           onClick={() => setMonday(addDays(monday, -7))}
           className="flex h-9 w-9 items-center justify-center border border-charcoal/25 transition hover:bg-charcoal hover:text-cream"
         >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3.5 w-3.5" aria-hidden="true">
-            <path d="M10 3L5 8l5 5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="h-3.5 w-3.5"
+            aria-hidden="true"
+          >
+            <path
+              d="M10 3L5 8l5 5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
         <div className="text-center">
@@ -306,8 +332,19 @@ export function WeekView({
           onClick={() => setMonday(addDays(monday, 7))}
           className="flex h-9 w-9 items-center justify-center border border-charcoal/25 transition hover:bg-charcoal hover:text-cream"
         >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3.5 w-3.5" aria-hidden="true">
-            <path d="M6 3l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="h-3.5 w-3.5"
+            aria-hidden="true"
+          >
+            <path
+              d="M6 3l5 5-5 5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
       </div>
@@ -366,15 +403,43 @@ export function WeekView({
             </label>
           </div>
           <p className="mt-1 text-[10px] leading-relaxed text-muted/80">
-            The big number is what each staff member takes home — wages +
-            tips, with tips first guaranteeing{" "}
+            The big number is what each staff member takes home — wages + tips,
+            with tips first guaranteeing{" "}
             {rows.some((r) => r.emp?.target_rate != null)
               ? `each person's target (default ${fmtMoney(wageTarget)}/hr)`
               : `${fmtMoney(wageTarget)}/hr`}
             . What&apos;s left after that is the owner&apos;s to distribute.
           </p>
 
-          {payout.covered ? (
+          {payout.totalNeed === 0 && rows.some((r) => !r.emp?.is_owner) ? (
+            // Zero need and "covered" are arithmetically the same but mean
+            // opposite things: tips closed a real gap, versus there was never
+            // a gap to close. Saying "covered" for both hid a misconfigured
+            // hourly rate behind a green checkmark.
+            <>
+              <p className="mt-2 text-sm font-semibold text-[#b07d3f]">
+                No tips needed — every rate already meets its target, so all{" "}
+                {fmtMoney(weekTips)} is leftover.
+              </p>
+              <p className="mt-1 text-[10px] leading-relaxed text-muted/80">
+                Tips only top someone up when their target is above their hourly
+                rate.{" "}
+                {rows
+                  .filter((r) => !r.emp?.is_owner && r.emp)
+                  .map(
+                    (r) =>
+                      `${r.emp!.name} is paid ${fmtMoney(Number(r.emp!.hourly_rate))}/hr against a ${fmtMoney(
+                        r.emp!.target_rate != null
+                          ? Number(r.emp!.target_rate)
+                          : wageTarget,
+                      )}/hr target`,
+                  )
+                  .join(" · ")}
+                . If you pay a lower base and use tips to reach the target, set
+                the base as their rate on the Team tab.
+              </p>
+            </>
+          ) : payout.covered ? (
             <>
               <p className="mt-2 text-sm font-semibold text-[#5a7d4f]">
                 ✓ Staff covered to{" "}
@@ -518,162 +583,164 @@ export function WeekView({
           <span className="hidden group-open:inline">▾ Hide tip math</span>
         </summary>
         <p className="mt-2 text-center text-[10px] text-muted/70">
-          For comparison only — the amounts to pay are in “Pay your team”
-          above.
+          For comparison only — the amounts to pay are in “Pay your team” above.
         </p>
         <div className="mt-3 flex flex-col gap-5">
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <SectionLabel>Tip splitter</SectionLabel>
-          <div className="flex border border-charcoal/20">
-            {(
-              [
-                ["even", "Even"],
-                ["hours", "Wk hours"],
-                ["daily", "Daily"],
-              ] as const
-            ).map(([mode, label]) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setSplitMode(mode)}
-                className={`whitespace-nowrap px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] transition sm:px-3 sm:tracking-[0.2em] ${
-                  splitMode === mode
-                    ? "bg-charcoal text-cream"
-                    : "text-muted hover:text-charcoal"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <p className="mt-3 text-sm text-muted">
-          {fmtMoney(weekTips)} in tips this week
-        </p>
-        <p className="mt-0.5 text-[10px] text-muted/70">
-          {splitMode === "even"
-            ? "Whole week's tips, equal cut per person."
-            : splitMode === "hours"
-              ? "Whole week's tips ÷ each person's weekly hours."
-              : "Each day's tips ÷ that day's hours, summed for the week."}
-        </p>
-
-        {weekTips <= 0 ? (
-          <p className="mt-2 text-xs text-muted/70">
-            Log tips on the Calendar tab and the split shows up here.
-          </p>
-        ) : splitMode === "even" ? (
-          <div className="mt-3 flex items-center gap-4">
-            <div className="flex items-center border border-charcoal/25">
-              <button
-                type="button"
-                aria-label="Fewer ways"
-                onClick={() => setSplitWays(Math.max(1, ways - 1))}
-                className="px-3 py-1.5 text-sm transition hover:bg-charcoal hover:text-cream"
-              >
-                −
-              </button>
-              <span className="min-w-14 px-2 text-center text-sm">
-                {ways} way{ways === 1 ? "" : "s"}
-              </span>
-              <button
-                type="button"
-                aria-label="More ways"
-                onClick={() => setSplitWays(ways + 1)}
-                className="px-3 py-1.5 text-sm transition hover:bg-charcoal hover:text-cream"
-              >
-                +
-              </button>
-            </div>
-            <p className="font-display text-lg">
-              {fmtMoney(Math.floor((weekTips / ways) * 100) / 100)}
-              <span className="ml-1.5 text-[10px] font-sans font-semibold uppercase tracking-[0.2em] text-muted">
-                each
-              </span>
-            </p>
-          </div>
-        ) : (
-          <div className="mt-3 flex flex-col gap-1.5">
-            {rows.length === 0 ? (
-              <p className="text-xs text-muted/70">
-                No one worked this week, so there&apos;s nothing to split by
-                hours.
-              </p>
-            ) : (
-              rows.map((r, i) => (
-                <div
-                  key={r.empId}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ background: r.emp?.color ?? "#999" }}
-                      aria-hidden="true"
-                    />
-                    {r.emp?.name ?? "Unknown"}
-                    <span className="text-xs text-muted">
-                      {fmtHours(r.hours)}
-                    </span>
-                  </span>
-                  <span className="font-display">
-                    {fmtMoney(
-                      splitMode === "daily"
-                        ? (daily.shares.get(r.empId) ?? 0)
-                        : (hourShares[i] ?? 0),
-                    )}
-                  </span>
-                </div>
-              ))
-            )}
-            {splitMode === "daily" && daily.unallocated > 0 && (
-              <p className="mt-1 text-[10px] text-[#a04a4a]">
-                {fmtMoney(daily.unallocated)} came in on days with no shifts
-                logged, so it isn&apos;t split — add those shifts on the
-                Calendar tab.
-              </p>
-            )}
-          </div>
-        )}
-      </Card>
-
-      {/* Tips by day */}
-      {tipDays.length > 0 && (
-        <Card>
-          <SectionLabel>Tips by day</SectionLabel>
-          <div className="mt-3 flex flex-col gap-2">
-            {tipDays.map((d) => (
-              <div
-                key={d.date}
-                className="flex items-center justify-between text-sm"
-              >
-                <span className="text-charcoal">{fmtDayShort(d.date)}</span>
-                <span className="text-muted">
-                  {fmtMoney(d.amount)}
-                  {d.workerCount > 0 ? (
-                    <>
-                      {" · "}
-                      {d.workerCount} worked{" · "}
-                      <span className="font-semibold text-charcoal">
-                        {fmtMoney(
-                          Math.floor((d.amount / d.workerCount) * 100) / 100,
-                        )}{" "}
-                        each
-                      </span>
-                      <span className="text-[10px] text-muted/70"> (even)</span>
-                    </>
-                  ) : (
-                    <> · no shifts logged</>
-                  )}
-                </span>
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <SectionLabel>Tip splitter</SectionLabel>
+              <div className="flex border border-charcoal/20">
+                {(
+                  [
+                    ["even", "Even"],
+                    ["hours", "Wk hours"],
+                    ["daily", "Daily"],
+                  ] as const
+                ).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setSplitMode(mode)}
+                    className={`whitespace-nowrap px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] transition sm:px-3 sm:tracking-[0.2em] ${
+                      splitMode === mode
+                        ? "bg-charcoal text-cream"
+                        : "text-muted hover:text-charcoal"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
+            </div>
 
+            <p className="mt-3 text-sm text-muted">
+              {fmtMoney(weekTips)} in tips this week
+            </p>
+            <p className="mt-0.5 text-[10px] text-muted/70">
+              {splitMode === "even"
+                ? "Whole week's tips, equal cut per person."
+                : splitMode === "hours"
+                  ? "Whole week's tips ÷ each person's weekly hours."
+                  : "Each day's tips ÷ that day's hours, summed for the week."}
+            </p>
+
+            {weekTips <= 0 ? (
+              <p className="mt-2 text-xs text-muted/70">
+                Log tips on the Calendar tab and the split shows up here.
+              </p>
+            ) : splitMode === "even" ? (
+              <div className="mt-3 flex items-center gap-4">
+                <div className="flex items-center border border-charcoal/25">
+                  <button
+                    type="button"
+                    aria-label="Fewer ways"
+                    onClick={() => setSplitWays(Math.max(1, ways - 1))}
+                    className="px-3 py-1.5 text-sm transition hover:bg-charcoal hover:text-cream"
+                  >
+                    −
+                  </button>
+                  <span className="min-w-14 px-2 text-center text-sm">
+                    {ways} way{ways === 1 ? "" : "s"}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="More ways"
+                    onClick={() => setSplitWays(ways + 1)}
+                    className="px-3 py-1.5 text-sm transition hover:bg-charcoal hover:text-cream"
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="font-display text-lg">
+                  {fmtMoney(Math.floor((weekTips / ways) * 100) / 100)}
+                  <span className="ml-1.5 text-[10px] font-sans font-semibold uppercase tracking-[0.2em] text-muted">
+                    each
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <div className="mt-3 flex flex-col gap-1.5">
+                {rows.length === 0 ? (
+                  <p className="text-xs text-muted/70">
+                    No one worked this week, so there&apos;s nothing to split by
+                    hours.
+                  </p>
+                ) : (
+                  rows.map((r, i) => (
+                    <div
+                      key={r.empId}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ background: r.emp?.color ?? "#999" }}
+                          aria-hidden="true"
+                        />
+                        {r.emp?.name ?? "Unknown"}
+                        <span className="text-xs text-muted">
+                          {fmtHours(r.hours)}
+                        </span>
+                      </span>
+                      <span className="font-display">
+                        {fmtMoney(
+                          splitMode === "daily"
+                            ? (daily.shares.get(r.empId) ?? 0)
+                            : (hourShares[i] ?? 0),
+                        )}
+                      </span>
+                    </div>
+                  ))
+                )}
+                {splitMode === "daily" && daily.unallocated > 0 && (
+                  <p className="mt-1 text-[10px] text-[#a04a4a]">
+                    {fmtMoney(daily.unallocated)} came in on days with no shifts
+                    logged, so it isn&apos;t split — add those shifts on the
+                    Calendar tab.
+                  </p>
+                )}
+              </div>
+            )}
+          </Card>
+
+          {/* Tips by day */}
+          {tipDays.length > 0 && (
+            <Card>
+              <SectionLabel>Tips by day</SectionLabel>
+              <div className="mt-3 flex flex-col gap-2">
+                {tipDays.map((d) => (
+                  <div
+                    key={d.date}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="text-charcoal">{fmtDayShort(d.date)}</span>
+                    <span className="text-muted">
+                      {fmtMoney(d.amount)}
+                      {d.workerCount > 0 ? (
+                        <>
+                          {" · "}
+                          {d.workerCount} worked{" · "}
+                          <span className="font-semibold text-charcoal">
+                            {fmtMoney(
+                              Math.floor((d.amount / d.workerCount) * 100) /
+                                100,
+                            )}{" "}
+                            each
+                          </span>
+                          <span className="text-[10px] text-muted/70">
+                            {" "}
+                            (even)
+                          </span>
+                        </>
+                      ) : (
+                        <> · no shifts logged</>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       </details>
 

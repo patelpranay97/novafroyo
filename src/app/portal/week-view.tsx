@@ -7,6 +7,8 @@ import {
   type Shift,
   type TipDay,
   addDays,
+  DEFAULT_WAGE_TARGET,
+  WAGE_TARGET_KEY,
   fmtDayShort,
   fmtHours,
   fmtMoney,
@@ -48,9 +50,9 @@ export function WeekView({
   const [splitWays, setSplitWays] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [wageTarget, setWageTarget] = useState<number>(() => {
-    if (typeof window === "undefined") return 17;
-    const saved = Number(window.localStorage.getItem("nova_wage_target"));
-    return saved > 0 ? saved : 17;
+    if (typeof window === "undefined") return DEFAULT_WAGE_TARGET;
+    const saved = Number(window.localStorage.getItem(WAGE_TARGET_KEY));
+    return saved > 0 ? saved : DEFAULT_WAGE_TARGET;
   });
 
   function updateWageTarget(value: string) {
@@ -58,7 +60,7 @@ export function WeekView({
     if (!Number.isFinite(v) || v < 0) return;
     setWageTarget(v);
     try {
-      window.localStorage.setItem("nova_wage_target", String(v));
+      window.localStorage.setItem(WAGE_TARGET_KEY, String(v));
     } catch {}
   }
 

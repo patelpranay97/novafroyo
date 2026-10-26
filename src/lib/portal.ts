@@ -265,6 +265,14 @@ export function dayProfit(
   };
 }
 
+/**
+ * The wage guarantee tips top staff up to, when a person has no override.
+ * Stored per-browser rather than in the database; the Week tab owns the
+ * input, the Team tab reads it so its key can't drift out of sync.
+ */
+export const WAGE_TARGET_KEY = "nova_wage_target";
+export const DEFAULT_WAGE_TARGET = 17;
+
 export const EMPLOYEE_COLORS = [
   "#2d4f9e", // aegean
   "#8a5a2b", // caramel

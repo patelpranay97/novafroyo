@@ -9,6 +9,8 @@ import {
   fmtMoney,
   normalizePhone,
   sumPay,
+  DEFAULT_WAGE_TARGET,
+  WAGE_TARGET_KEY,
 } from "@/lib/portal";
 import { Card, Modal, SectionLabel, btnCls, btnSolidCls, inputCls } from "./ui";
 
@@ -32,6 +34,14 @@ export function TeamView({
   const [color, setColor] = useState(EMPLOYEE_COLORS[0]);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Employee | null>(null);
+  // The same value the Week tab's target box writes, read rather than
+  // hardcoded so this key can never contradict the number actually used.
+  // The tab unmounts when you leave it, so reopening picks up a change.
+  const [defaultTarget] = useState(() => {
+    if (typeof window === "undefined") return DEFAULT_WAGE_TARGET;
+    const saved = Number(window.localStorage.getItem(WAGE_TARGET_KEY));
+    return saved > 0 ? saved : DEFAULT_WAGE_TARGET;
+  });
 
   const unpaidByEmp = useMemo(() => {
     const map = new Map<string, number>();
@@ -268,6 +278,18 @@ export function TeamView({
       </Card>
 
       {/* Employee list */}
+      {sorted.length > 0 && (
+        <p className="-mb-1 text-center text-[10px] leading-relaxed text-muted/80">
+          <span className="font-semibold text-charcoal">Wage guarantee</span> is
+          the hourly figure tips top someone up to. Left blank it uses the
+          default,{" "}
+          <span className="font-semibold text-charcoal">
+            {fmtMoney(defaultTarget)}/hr
+          </span>{" "}
+          — change that on the Week tab. Set a number here only for someone
+          guaranteed something different.
+        </p>
+      )}
       {sorted.length === 0 ? (
         <Card className="py-10 text-center">
           <p className="text-sm text-muted">

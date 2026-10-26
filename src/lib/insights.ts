@@ -762,6 +762,11 @@ export type DaySplit = {
   avgProfit: number;
   /** profit as a share of net sales on those days; null when nothing sold */
   margin: number | null;
+  /** wages per day on those days — the co-packer trades mix cost for prep */
+  avgLabor: number;
+  avgCups: number;
+  /** cups cost per cup sold; null when no cups sold */
+  cogsPerCup: number | null;
 };
 
 function summarize(
@@ -771,18 +776,26 @@ function summarize(
   settings: Settings,
   labor: Map<string, number>,
 ): DaySplit {
-  let net = 0, profit = 0;
+  let net = 0, profit = 0, wages = 0, cups = 0, cogs = 0;
   for (const s of rows) {
+    const p = dayProfit(s, settings, labor.get(s.work_date) ?? 0);
     net += Number(s.net_sales);
-    profit += dayProfit(s, settings, labor.get(s.work_date) ?? 0).profit;
+    profit += p.profit;
+    wages += p.labor;
+    cogs += p.cogs;
+    cups += s.mini_cups + s.regular_cups + s.super_cups;
   }
+  const n = rows.length;
   return {
     key,
     label,
-    days: rows.length,
-    avgNet: rows.length > 0 ? round2(net / rows.length) : 0,
-    avgProfit: rows.length > 0 ? round2(profit / rows.length) : 0,
+    days: n,
+    avgNet: n > 0 ? round2(net / n) : 0,
+    avgProfit: n > 0 ? round2(profit / n) : 0,
     margin: net > 0 ? round2((profit / net) * 100) : null,
+    avgLabor: n > 0 ? round2(wages / n) : 0,
+    avgCups: n > 0 ? round2(cups / n) : 0,
+    cogsPerCup: cups > 0 ? round2(cogs / cups) : null,
   };
 }
 
@@ -868,6 +881,121 @@ export function weatherCoverage(sales: DailySales[]): {
     logged: sales.filter((s) => s.weather || s.temp_f !== null && s.temp_f !== undefined).length,
     total: sales.length,
   };
+}
+
+// ---------- What the landlord gets ----------
+
+export type LandlordTotals = {
+  monthShare: number;
+  monthRent: number;
+  monthTotal: number;
+  allShare: number;
+  allRent: number;
+  allTotal: number;
+  /** Distinct months with sales logged — how many rents are assumed. */
+  monthsBilled: number;
+};
+
+/**
+ * The landlord is paid twice: a share of revenue and the rent. This totals
+ * both, for the viewed month and across everything logged.
+ *
+ * All-time rent is today's rent times the number of months with sales, so it
+ * assumes rent never changed and that a partial first month still owed a full
+ * one. The revenue share is exact — each day carries the rate it was billed.
+ */
+export function landlordTotals(
+  sales: DailySales[],
+  settings: Settings,
+  labor: Map<string, number>,
+  year: number,
+  month: number,
+): LandlordTotals {
+  const prefix = monthPrefix(year, month);
+  const months = new Set<string>();
+  let monthShare = 0;
+  let allShare = 0;
+  for (const s of sales) {
+    const share = dayProfit(s, settings, labor.get(s.work_date) ?? 0).landlordShare;
+    allShare += share;
+    months.add(s.work_date.slice(0, 7));
+    if (s.work_date.startsWith(prefix)) monthShare += share;
+  }
+  const rent = Number(settings.monthly_rent);
+  const monthsBilled = months.size;
+  const monthRent = months.has(prefix) ? rent : 0;
+  const allRent = round2(rent * monthsBilled);
+  return {
+    monthShare: round2(monthShare),
+    monthRent: round2(monthRent),
+    monthTotal: round2(monthShare + monthRent),
+    allShare: round2(allShare),
+    allRent,
+    allTotal: round2(allShare + allRent),
+    monthsBilled,
+  };
+}
+
+// ---------- Month-over-month revenue ----------
+
+export type MonthPoint = {
+  prefix: string; // YYYY-MM
+  label: string; // "Oct"
+  net: number;
+  profit: number;
+  days: number;
+  /** True for a month still being logged — its total isn't final. */
+  partial: boolean;
+};
+
+const MONTH_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/**
+ * One point per calendar month that has sales, oldest first. Months with no
+ * sales between two that have them are included at zero rather than skipped,
+ * so a closed stretch reads as a dip instead of being drawn over.
+ */
+export function monthlyRevenue(
+  sales: DailySales[],
+  settings: Settings,
+  labor: Map<string, number>,
+  today: Date,
+): MonthPoint[] {
+  const byMonth = new Map<string, { net: number; profit: number; days: number }>();
+  for (const s of sales) {
+    const prefix = s.work_date.slice(0, 7);
+    const b = byMonth.get(prefix) ?? { net: 0, profit: 0, days: 0 };
+    b.net += Number(s.net_sales);
+    b.profit += dayProfit(s, settings, labor.get(s.work_date) ?? 0).profit;
+    b.days++;
+    byMonth.set(prefix, b);
+  }
+  if (byMonth.size === 0) return [];
+
+  const keys = [...byMonth.keys()].sort();
+  const [firstY, firstM] = keys[0].split("-").map(Number);
+  const [lastY, lastM] = keys[keys.length - 1].split("-").map(Number);
+  const thisPrefix = monthPrefix(today.getFullYear(), today.getMonth());
+
+  const out: MonthPoint[] = [];
+  for (let y = firstY, m = firstM; y < lastY || (y === lastY && m <= lastM); ) {
+    const prefix = `${y}-${String(m).padStart(2, "0")}`;
+    const b = byMonth.get(prefix) ?? { net: 0, profit: 0, days: 0 };
+    out.push({
+      prefix,
+      label: MONTH_SHORT[m - 1],
+      net: round2(b.net),
+      profit: round2(b.profit),
+      days: b.days,
+      partial: prefix === thisPrefix,
+    });
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return out;
 }
 
 // ---------- Unpaid aging + records ----------

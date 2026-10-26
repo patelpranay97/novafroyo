@@ -88,3 +88,96 @@ export function ColumnChart({
     </div>
   );
 }
+
+/**
+ * Single-series line chart for a value over time.
+ * The line is drawn in a stretched SVG (crisp via non-scaling-stroke) with
+ * the dots laid over it as real elements, so they stay round at any width
+ * and are big enough to tap. Baseline is zero — a month-over-month revenue
+ * line on a cropped axis exaggerates every wobble into a trend.
+ */
+export function LineChart({
+  points,
+  color,
+  detail,
+  ariaLabel,
+  fmtValue = fmtMoney,
+}: {
+  points: { label: string; value: number; muted?: boolean }[];
+  color: string;
+  detail: (i: number) => string;
+  ariaLabel: string;
+  fmtValue?: (v: number) => string;
+}) {
+  const [sel, setSel] = useState<number | null>(null);
+  const validSel = sel !== null && sel < points.length ? sel : null;
+  const max = Math.max(...points.map((p) => p.value), 0);
+  const H = 112;
+  if (max <= 0 || points.length === 0) return null;
+
+  // One point can't make a line; place it mid-plot instead of dividing by 0.
+  const x = (i: number) =>
+    points.length === 1 ? 50 : (i / (points.length - 1)) * 100;
+  const y = (v: number) => 100 - (v / max) * 100;
+
+  return (
+    <div role="img" aria-label={ariaLabel}>
+      <p className="mb-1 text-[9px] text-muted/70">{fmtValue(max)} max</p>
+      <div className="relative" style={{ height: H }}>
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="absolute inset-0 h-full w-full"
+          aria-hidden="true"
+        >
+          <polyline
+            points={points.map((p, i) => `${x(i)},${y(p.value)}`).join(" ")}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        {points.map((p, i) => (
+          <button
+            key={p.label + i}
+            type="button"
+            onClick={() => setSel(validSel === i ? null : i)}
+            onMouseEnter={() => setSel(i)}
+            onMouseLeave={() => setSel(null)}
+            aria-label={`${p.label}: ${fmtValue(p.value)}`}
+            className="absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+            style={{ left: `${x(i)}%`, top: `${y(p.value)}%` }}
+          >
+            <span
+              className={`block rounded-full transition-all ${
+                validSel === i ? "h-2.5 w-2.5" : "h-1.5 w-1.5"
+              }`}
+              style={{
+                background: p.muted ? "var(--cream)" : color,
+                boxShadow: p.muted ? `inset 0 0 0 2px ${color}` : undefined,
+              }}
+            />
+          </button>
+        ))}
+      </div>
+      <div className="flex border-t border-charcoal/15">
+        {points.map((p, i) => (
+          <span
+            key={p.label + i}
+            className={`flex-1 pt-1 text-center text-[9px] ${
+              validSel === i ? "font-semibold text-charcoal" : "text-muted"
+            }`}
+          >
+            {p.label}
+          </span>
+        ))}
+      </div>
+      <p className="mt-1.5 min-h-[1.5em] text-[10px] leading-tight text-muted">
+        {validSel !== null ? detail(validSel) : ""}
+      </p>
+    </div>
+  );
+}

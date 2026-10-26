@@ -22,7 +22,9 @@ import {
   weatherCoverage,
   weatherSplits,
   laborByDate,
+  landlordTotals,
   monthTotals,
+  monthlyRevenue,
   pctDelta,
   records,
   rentProgress,
@@ -33,7 +35,7 @@ import {
   weeklyTrend,
 } from "@/lib/insights";
 import { Card, SectionLabel } from "./ui";
-import { ColumnChart } from "./charts";
+import { ColumnChart, LineChart } from "./charts";
 
 // Chart hues — validated (dataviz six checks) against the cream surface.
 const HUE_TIPS = "#2d4f9e"; // aegean
@@ -156,10 +158,58 @@ export function InsightsView({
   const be = breakEven(sales, settings, labor);
   const salesWeekdays = salesByWeekday(sales, settings, labor);
   const salesWeekdayHasBars = salesWeekdays.some((w) => w.avgNet > 0);
+  const months = monthlyRevenue(sales, settings, labor, now);
+  const toLandlord = landlordTotals(
+    sales, settings, labor, now.getFullYear(), now.getMonth(),
+  );
   const mix = mixComparison(sales, settings, labor);
   const weather = weatherSplits(sales, settings, labor);
   const temps = tempSplits(sales, settings, labor);
   const wxCoverage = weatherCoverage(sales);
+  /**
+   * The question the mix card exists to answer: making it in-house costs prep
+   * wages, the co-packer costs more per ounce. Comparing the daily mix premium
+   * against the wage difference says which is actually cheaper — stated as an
+   * observation, since a quiet week could explain the wage gap just as well.
+   */
+  const mixVerdict = (() => {
+    if (!mix || mix.copacker.days === 0) return null;
+    const premium = Math.round((mix.extraMixCost / mix.copacker.days) * 100) / 100;
+    const laborGap = Math.round((mix.own.avgLabor - mix.copacker.avgLabor) * 100) / 100;
+    const net = Math.round((premium - laborGap) * 100) / 100;
+    const thin = mix.copacker.days < 5 || mix.own.days < 5;
+    if (Math.abs(laborGap) < 1) {
+      return (
+        <>
+          Wages ran about the same either way, so the co-packer is a straight{" "}
+          <span className="font-semibold text-charcoal">
+            {fmtMoney(premium)}/day
+          </span>{" "}
+          cost with nothing offsetting it.
+        </>
+      );
+    }
+    return (
+      <>
+        Co-packer days also ran{" "}
+        <span className="font-semibold text-charcoal">
+          {fmtMoney(Math.abs(laborGap))}/day
+        </span>{" "}
+        {laborGap > 0 ? "less" : "more"} in wages. If that gap is prep you skip,
+        the {fmtMoney(premium)}/day mix premium nets out to{" "}
+        <span
+          className={`font-semibold ${net > 0 ? "text-[#a04a4a]" : "text-[#5a7d4f]"}`}
+        >
+          {net > 0 ? `${fmtMoney(net)}/day worse` : `${fmtMoney(-net)}/day better`}
+        </span>
+        .{" "}
+        {thin
+          ? "Too few days either way to lean on yet — a quiet week would move this as much as the mix does."
+          : "Worth checking against a slow week before acting on it."}
+      </>
+    );
+  })();
+
   // A single day is an anecdote; say so rather than drawing a confident bar.
   const thinSplits = [...weather, ...temps]
     .filter((d) => d.days === 1)
@@ -228,6 +278,47 @@ export function InsightsView({
         </div>
       )}
 
+      {/* Month over month */}
+      {months.length > 1 && (
+        <Card>
+          <SectionLabel>Revenue, month over month</SectionLabel>
+          <p className="mb-3 mt-1 text-[10px] text-muted/80">
+            Net sales per month — tap a point for detail.
+            {months[months.length - 1].partial && (
+              <>
+                {" "}
+                {months[months.length - 1].label} is still in progress, so its
+                point will keep rising.
+              </>
+            )}
+          </p>
+          <LineChart
+            ariaLabel="Net sales for each month"
+            color={HUE_SALES}
+            points={months.map((m) => ({
+              label: m.label,
+              value: m.net,
+              muted: m.partial,
+            }))}
+            detail={(i) => {
+              const m = months[i];
+              if (m.days === 0) return `${m.label} · nothing logged`;
+              const prev = months[i - 1];
+              const delta =
+                prev && prev.net > 0 ? pctDelta(m.net, prev.net) : null;
+              return (
+                `${m.label} · ${fmtMoney(m.net)} sales · ${fmtMoney(m.profit)} profit · ` +
+                `${m.days} day${m.days === 1 ? "" : "s"}` +
+                (delta !== null
+                  ? ` · ${delta >= 0 ? "+" : ""}${delta}% vs ${prev.label}`
+                  : "") +
+                (m.partial ? " · still in progress" : "")
+              );
+            }}
+          />
+        </Card>
+      )}
+
       {/* Rent progress + break-even */}
       {earn.days > 0 && (
         <Card>
@@ -271,6 +362,29 @@ export function InsightsView({
               </>
             )}
           </p>
+          {toLandlord.allTotal > 0 && (
+            <div className="mt-2 border-t border-charcoal/10 pt-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+                  Paid to landlord
+                </span>
+                <span className="font-display text-base text-[#8a5a2b]">
+                  {fmtMoney(toLandlord.monthTotal)}
+                </span>
+              </div>
+              <p className="mt-0.5 text-[10px] leading-relaxed text-muted/80">
+                {fmtMoney(toLandlord.monthShare)} revenue share +{" "}
+                {fmtMoney(toLandlord.monthRent)} rent this month ·{" "}
+                <span className="font-semibold text-charcoal">
+                  {fmtMoney(toLandlord.allTotal)}
+                </span>{" "}
+                all time ({fmtMoney(toLandlord.allShare)} share +{" "}
+                {fmtMoney(toLandlord.allRent)} rent across{" "}
+                {toLandlord.monthsBilled} month
+                {toLandlord.monthsBilled === 1 ? "" : "s"}, at today&apos;s rent).
+              </p>
+            </div>
+          )}
           {be && (
             <p className="mt-2 border-t border-charcoal/10 pt-2 text-[11px] leading-relaxed text-muted">
               Break-even is about{" "}
@@ -365,9 +479,14 @@ export function InsightsView({
                   {fmtMoney(d.avgProfit)}
                 </p>
                 <p className="text-[10px] text-muted">profit/day</p>
-                <p className="mt-1 text-[10px] text-muted/80">
+                <p className="mt-1 text-[10px] leading-relaxed text-muted/80">
                   {d.days} day{d.days === 1 ? "" : "s"}
                   {d.margin !== null && <> · {d.margin}% margin</>}
+                  <br />
+                  {fmtMoney(d.avgLabor)} wages/day
+                  {d.cogsPerCup !== null && (
+                    <> · {fmtMoney(d.cogsPerCup)}/cup</>
+                  )}
                 </p>
               </div>
             ))}
@@ -382,6 +501,13 @@ export function InsightsView({
             {fmtMoney(round2(mix.extraMixCost / Math.max(1, mix.copacker.days)))} a
             day at {fmtMoney(Number(settings.mix_copacker_cost))}/oz against{" "}
             {fmtMoney(Number(settings.mix_own_cost))}/oz for ours.
+            {mixVerdict && (
+              <>
+                <br />
+                <br />
+                {mixVerdict}
+              </>
+            )}
             {mix.own.avgNet > 0 && mix.copacker.avgNet > 0 && (
               <>
                 {" "}

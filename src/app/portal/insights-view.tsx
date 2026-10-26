@@ -362,29 +362,6 @@ export function InsightsView({
               </>
             )}
           </p>
-          {toLandlord.allTotal > 0 && (
-            <div className="mt-2 border-t border-charcoal/10 pt-2">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
-                  Paid to landlord
-                </span>
-                <span className="font-display text-base text-[#8a5a2b]">
-                  {fmtMoney(toLandlord.monthTotal)}
-                </span>
-              </div>
-              <p className="mt-0.5 text-[10px] leading-relaxed text-muted/80">
-                {fmtMoney(toLandlord.monthShare)} revenue share +{" "}
-                {fmtMoney(toLandlord.monthRent)} rent this month ·{" "}
-                <span className="font-semibold text-charcoal">
-                  {fmtMoney(toLandlord.allTotal)}
-                </span>{" "}
-                all time ({fmtMoney(toLandlord.allShare)} share +{" "}
-                {fmtMoney(toLandlord.allRent)} rent across{" "}
-                {toLandlord.monthsBilled} month
-                {toLandlord.monthsBilled === 1 ? "" : "s"}, at today&apos;s rent).
-              </p>
-            </div>
-          )}
           {be && (
             <p className="mt-2 border-t border-charcoal/10 pt-2 text-[11px] leading-relaxed text-muted">
               Break-even is about{" "}
@@ -403,6 +380,74 @@ export function InsightsView({
               and the landlord.
             </p>
           )}
+        </Card>
+      )}
+
+      {/* Paid to landlord */}
+      {toLandlord.allTotal > 0 && (
+        <Card>
+          <SectionLabel>Paid to landlord</SectionLabel>
+          <p className="mb-3 mt-1 text-[10px] text-muted/80">
+            They&apos;re paid twice — a share of revenue, and the rent.
+          </p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted">
+                <th className="pb-1 text-left font-semibold" />
+                <th className="pb-1 text-right font-semibold">
+                  {MONTH_NAMES[now.getMonth()].slice(0, 3)}
+                </th>
+                <th className="pb-1 text-right font-semibold">
+                  {now.getFullYear()} YTD
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-charcoal/10">
+                <td className="py-1.5 text-left text-muted">
+                  Revenue share
+                </td>
+                <td className="py-1.5 text-right">
+                  {fmtMoney(toLandlord.monthShare)}
+                </td>
+                <td className="py-1.5 text-right font-semibold text-[#8a5a2b]">
+                  {fmtMoney(toLandlord.ytdShare)}
+                </td>
+              </tr>
+              <tr className="border-t border-charcoal/10">
+                <td className="py-1.5 text-left text-muted">Rent</td>
+                <td className="py-1.5 text-right">
+                  {fmtMoney(toLandlord.monthRent)}
+                </td>
+                <td className="py-1.5 text-right">
+                  {fmtMoney(toLandlord.ytdRent)}
+                </td>
+              </tr>
+              <tr className="border-t border-charcoal/20">
+                <td className="py-1.5 text-left font-semibold">Total</td>
+                <td className="py-1.5 text-right font-semibold">
+                  {fmtMoney(toLandlord.monthTotal)}
+                </td>
+                <td className="py-1.5 text-right font-display text-base">
+                  {fmtMoney(toLandlord.ytdTotal)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="mt-2 text-[10px] leading-relaxed text-muted/70">
+            Revenue share is exact — every day is counted at the rate it was
+            billed. Rent is today&apos;s {fmtMoney(Number(settings.monthly_rent))}{" "}
+            across the {toLandlord.ytdMonths} month
+            {toLandlord.ytdMonths === 1 ? "" : "s"}{" "}
+            with sales this year, so it assumes rent hasn&apos;t changed.
+            {toLandlord.allTotal !== toLandlord.ytdTotal && (
+              <>
+                {" "}
+                All time: {fmtMoney(toLandlord.allTotal)} (
+                {fmtMoney(toLandlord.allShare)} share).
+              </>
+            )}
+          </p>
         </Card>
       )}
 

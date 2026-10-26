@@ -889,6 +889,11 @@ export type LandlordTotals = {
   monthShare: number;
   monthRent: number;
   monthTotal: number;
+  /** Calendar year to date — the figure an accountant asks for. */
+  ytdShare: number;
+  ytdRent: number;
+  ytdTotal: number;
+  ytdMonths: number;
   allShare: number;
   allRent: number;
   allTotal: number;
@@ -912,23 +917,35 @@ export function landlordTotals(
   month: number,
 ): LandlordTotals {
   const prefix = monthPrefix(year, month);
+  const yearPrefix = `${year}-`;
   const months = new Set<string>();
+  const ytdMonthSet = new Set<string>();
   let monthShare = 0;
+  let ytdShare = 0;
   let allShare = 0;
   for (const s of sales) {
     const share = dayProfit(s, settings, labor.get(s.work_date) ?? 0).landlordShare;
     allShare += share;
     months.add(s.work_date.slice(0, 7));
     if (s.work_date.startsWith(prefix)) monthShare += share;
+    if (s.work_date.startsWith(yearPrefix)) {
+      ytdShare += share;
+      ytdMonthSet.add(s.work_date.slice(0, 7));
+    }
   }
   const rent = Number(settings.monthly_rent);
   const monthsBilled = months.size;
   const monthRent = months.has(prefix) ? rent : 0;
   const allRent = round2(rent * monthsBilled);
+  const ytdRent = round2(rent * ytdMonthSet.size);
   return {
     monthShare: round2(monthShare),
     monthRent: round2(monthRent),
     monthTotal: round2(monthShare + monthRent),
+    ytdShare: round2(ytdShare),
+    ytdRent,
+    ytdTotal: round2(ytdShare + ytdRent),
+    ytdMonths: ytdMonthSet.size,
     allShare: round2(allShare),
     allRent,
     allTotal: round2(allShare + allRent),

@@ -14,6 +14,7 @@ import {
   dayProfit,
   fmtDayShort,
   fmtMoney,
+  landlordPctFor,
   parseDateStr,
   parseSquareReport,
   round2,
@@ -320,26 +321,43 @@ export function ProfitView({
   }, [totals]);
 
   // Projections from ALL entered days (not just the viewed month).
-  const projection = useMemo(() => {
-    const entries = sales.map((s) => ({
-      work_date: s.work_date,
-      net: Number(s.net_sales),
-      profit: dayProfit(s, settings, laborByDate.get(s.work_date) ?? 0).profit,
-    }));
-    return projectIncome(entries, today);
+  // Shared by both projections: profit alone excludes the landlord's cut and
+  // rent, so both are handed in and each future day is priced at the rate
+  // that will apply on it.
+  const incomeEntries = useMemo(
+    () =>
+      sales.map((s) => {
+        const p = dayProfit(s, settings, laborByDate.get(s.work_date) ?? 0);
+        return {
+          work_date: s.work_date,
+          net: Number(s.net_sales),
+          profit: p.profit,
+          landlord: p.landlordShare,
+        };
+      }),
+    [sales, settings, laborByDate],
+  );
+
+  const overhead = useMemo(
+    () => ({
+      landlordPct: (dateStr: string) => landlordPctFor(dateStr, settings),
+      monthlyRent: Number(settings.monthly_rent),
+    }),
+    [settings],
+  );
+
+  const projection = useMemo(
+    () => projectIncome(incomeEntries, today, overhead),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sales, settings, laborByDate]);
+    [incomeEntries, overhead],
+  );
 
   // Same inputs, simulated instead of averaged — shows the spread around it.
-  const simulation = useMemo(() => {
-    const entries = sales.map((s) => ({
-      work_date: s.work_date,
-      net: Number(s.net_sales),
-      profit: dayProfit(s, settings, laborByDate.get(s.work_date) ?? 0).profit,
-    }));
-    return simulateIncome(entries, today);
+  const simulation = useMemo(
+    () => simulateIncome(incomeEntries, today, overhead),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sales, settings, laborByDate]);
+    [incomeEntries, overhead],
+  );
 
   const cells = useMemo(() => {
     const first = new Date(year, month, 1);
@@ -1041,14 +1059,14 @@ export function ProfitView({
               </Card>
               <Card className="text-center">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">
-                  This month · net
+                  This month · take-home
                 </p>
                 <p
-                  className={`mt-1 font-display text-lg ${projection.monthNet < 0 ? "text-[#a04a4a]" : "text-[#5a7d4f]"}`}
+                  className={`mt-1 font-display text-lg ${projection.monthTakeHome < 0 ? "text-[#a04a4a]" : "text-[#5a7d4f]"}`}
                 >
-                  {fmtMoney(projection.monthNet)}
+                  {fmtMoney(projection.monthTakeHome)}
                 </p>
-                <RangeLine r={simulation.monthNet} />
+                <RangeLine r={simulation.monthTakeHome} />
               </Card>
               <Card className="text-center">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">
@@ -1061,14 +1079,14 @@ export function ProfitView({
               </Card>
               <Card className="text-center">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">
-                  Next 90 days · net
+                  Next 90 days · take-home
                 </p>
                 <p
-                  className={`mt-1 font-display text-lg ${projection.ninetyNet < 0 ? "text-[#a04a4a]" : "text-[#5a7d4f]"}`}
+                  className={`mt-1 font-display text-lg ${projection.ninetyTakeHome < 0 ? "text-[#a04a4a]" : "text-[#5a7d4f]"}`}
                 >
-                  {fmtMoney(projection.ninetyNet)}
+                  {fmtMoney(projection.ninetyTakeHome)}
                 </p>
-                <RangeLine r={simulation.ninetyNet} />
+                <RangeLine r={simulation.ninetyTakeHome} />
               </Card>
             </div>
             <p className="mt-2 text-center text-[10px] leading-relaxed text-muted/80">
@@ -1077,9 +1095,13 @@ export function ProfitView({
               {projection.monthDaysProjected} estimated day
               {projection.monthDaysProjected === 1 ? "" : "s"}.
               <br />
-              The big number averages your last {projection.sampleDays} logged
-              days by day of week. Gross = net sales; net = profit after cups,
-              wages, fees.
+              The big number averages your last {projection.sampleDays}{" "}
+              logged days by day of week. Gross = net sales. Take-home = after cups,
+              wages, card fees, the landlord&apos;s share, and rent (
+              {fmtMoney(projection.monthRent)} this month,{" "}
+              {fmtMoney(projection.ninetyRent)} across 90 days). Future days use
+              the landlord rate that will apply on them, not the one your past
+              days were billed at.
               {projection.zeroWeekdays.length > 0 &&
                 projection.zeroWeekdays.length < 7 && (
                   <>

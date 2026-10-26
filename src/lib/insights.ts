@@ -243,8 +243,19 @@ export function employeeStats(
 export type IncomeEntry = {
   work_date: string; // YYYY-MM-DD
   net: number; // net sales (revenue, excl. sales tax)
-  profit: number; // netish profit for the day
+  profit: number; // netish profit: net sales - cups - wages - card fees
+  landlord: number; // that day's landlord share, billed at that day's rate
 };
+
+/** Rent and the landlord's rate — the costs profit alone doesn't carry. */
+export type OverheadOpts = {
+  /** Landlord share for a future date, as a percentage. */
+  landlordPct: (dateStr: string) => number;
+  monthlyRent: number;
+};
+
+/** Average days in a month, for prorating rent across a 90-day window. */
+const DAYS_PER_MONTH = 30.4375;
 
 export type IncomeProjection = {
   sampleDays: number;
@@ -255,12 +266,19 @@ export type IncomeProjection = {
   monthDaysProjected: number;
   ninetyGross: number; // next 90 days, pure forward estimate
   ninetyNet: number;
+  /** Net after the landlord's share and rent — what actually stays. */
+  monthTakeHome: number;
+  ninetyTakeHome: number;
+  /** Rent charged against each window, so the UI can show its own math. */
+  monthRent: number;
+  ninetyRent: number;
   zeroWeekdays: string[]; // weekday labels with no data (project $0)
 };
 
 export function projectIncome(
   entries: IncomeEntry[],
   today: Date,
+  overhead: OverheadOpts,
 ): IncomeProjection {
   const todayStr = toDateStr(today);
   const cutoff = toDateStr(addDays(today, -28));
@@ -287,6 +305,7 @@ export function projectIncome(
   const daysInMonth = new Date(y, m + 1, 0).getDate();
   let monthGross = 0;
   let monthNet = 0;
+  let monthAfterLandlord = 0;
   let monthActualGross = 0;
   let monthActualNet = 0;
   let monthDaysProjected = 0;
@@ -296,6 +315,8 @@ export function projectIncome(
     if (e) {
       monthGross += Number(e.net);
       monthNet += Number(e.profit);
+      // A logged day was billed at whatever rate applied on that date.
+      monthAfterLandlord += Number(e.profit) - Number(e.landlord);
       monthActualGross += Number(e.net);
       monthActualNet += Number(e.profit);
     } else if (ds >= todayStr) {
@@ -304,17 +325,29 @@ export function projectIncome(
       const w = weekdayIndex(ds);
       monthGross += avgNet(w);
       monthNet += avgProfit(w);
+      // Projected days take the rate that will apply on that future date,
+      // not the rate baked into the past days being averaged.
+      monthAfterLandlord +=
+        avgProfit(w) - (avgNet(w) * overhead.landlordPct(ds)) / 100;
       monthDaysProjected++;
     }
   }
 
   let ninetyGross = 0;
   let ninetyNet = 0;
+  let ninetyAfterLandlord = 0;
   for (let i = 0; i < 90; i++) {
-    const w = (addDays(today, i).getDay() + 6) % 7;
+    const day = addDays(today, i);
+    const ds = toDateStr(day);
+    const w = (day.getDay() + 6) % 7;
     ninetyGross += avgNet(w);
     ninetyNet += avgProfit(w);
+    ninetyAfterLandlord +=
+      avgProfit(w) - (avgNet(w) * overhead.landlordPct(ds)) / 100;
   }
+
+  const monthRent = round2(Number(overhead.monthlyRent));
+  const ninetyRent = round2((Number(overhead.monthlyRent) * 90) / DAYS_PER_MONTH);
 
   return {
     sampleDays: window.length,
@@ -325,6 +358,10 @@ export function projectIncome(
     monthDaysProjected,
     ninetyGross: round2(ninetyGross),
     ninetyNet: round2(ninetyNet),
+    monthTakeHome: round2(monthAfterLandlord - monthRent),
+    ninetyTakeHome: round2(ninetyAfterLandlord - ninetyRent),
+    monthRent,
+    ninetyRent,
     zeroWeekdays: WEEKDAY_LABELS.filter((_, i) => wdCount[i] === 0),
   };
 }
@@ -347,6 +384,9 @@ export type IncomeSimulation = {
   monthNet: IncomeRange;
   ninetyGross: IncomeRange;
   ninetyNet: IncomeRange;
+  /** After the landlord's share and rent. */
+  monthTakeHome: IncomeRange;
+  ninetyTakeHome: IncomeRange;
   trials: number;
   /** Weekdays with fewer than 2 samples can't show real spread. */
   thinWeekdays: string[];
@@ -385,6 +425,7 @@ function percentile(sorted: number[], p: number): number {
 export function simulateIncome(
   entries: IncomeEntry[],
   today: Date,
+  overhead: OverheadOpts,
   trials = 2000,
 ): IncomeSimulation {
   const todayStr = toDateStr(today);
@@ -411,58 +452,79 @@ export function simulateIncome(
   const y = today.getFullYear();
   const m = today.getMonth();
   const daysInMonth = new Date(y, m + 1, 0).getDate();
-  const monthFuture: number[] = [];
+  // Each future day carries the landlord rate that will apply on it.
+  const monthFuture: { w: number; pct: number }[] = [];
   let monthActualGross = 0;
   let monthActualNet = 0;
+  let monthActualAfterLandlord = 0;
   for (let d = 1; d <= daysInMonth; d++) {
     const ds = toDateStr(new Date(y, m, d));
     const e = byDate.get(ds);
     if (e) {
       monthActualGross += Number(e.net);
       monthActualNet += Number(e.profit);
+      monthActualAfterLandlord += Number(e.profit) - Number(e.landlord);
     } else if (ds >= todayStr) {
-      monthFuture.push(weekdayIndex(ds));
+      monthFuture.push({ w: weekdayIndex(ds), pct: overhead.landlordPct(ds) });
     }
   }
-  const ninetyDays: number[] = [];
+  const ninetyDays: { w: number; pct: number }[] = [];
   for (let i = 0; i < 90; i++) {
-    ninetyDays.push((addDays(today, i).getDay() + 6) % 7);
+    const day = addDays(today, i);
+    ninetyDays.push({
+      w: (day.getDay() + 6) % 7,
+      pct: overhead.landlordPct(toDateStr(day)),
+    });
   }
+  const monthRent = Number(overhead.monthlyRent);
+  const ninetyRent = (Number(overhead.monthlyRent) * 90) / DAYS_PER_MONTH;
 
   const seed = hashSeed(
-    window.map((e) => `${e.work_date}:${e.net}:${e.profit}`).join("|"),
+    window
+      .map((e) => `${e.work_date}:${e.net}:${e.profit}:${e.landlord}`)
+      .join("|"),
   );
   const rng = makeRng(seed || 1);
 
   const mg: number[] = [];
   const mn: number[] = [];
+  const mt: number[] = [];
   const ng: number[] = [];
   const nn: number[] = [];
+  const nt: number[] = [];
   for (let t = 0; t < trials; t++) {
     let mGross = monthActualGross;
     let mNet = monthActualNet;
-    for (const w of monthFuture) {
+    let mAfter = monthActualAfterLandlord;
+    for (const { w, pct } of monthFuture) {
       const obs = byWeekday[w];
       if (obs.length === 0) continue; // no data for that weekday -> $0
       const pick = obs[Math.floor(rng() * obs.length)];
       mGross += pick.net;
       mNet += pick.profit;
+      // The landlord takes a cut of whatever that drawn day actually sold,
+      // so the take-home band widens with sales instead of being a shift.
+      mAfter += pick.profit - (pick.net * pct) / 100;
     }
     let nGross = 0;
     let nNet = 0;
-    for (const w of ninetyDays) {
+    let nAfter = 0;
+    for (const { w, pct } of ninetyDays) {
       const obs = byWeekday[w];
       if (obs.length === 0) continue;
       const pick = obs[Math.floor(rng() * obs.length)];
       nGross += pick.net;
       nNet += pick.profit;
+      nAfter += pick.profit - (pick.net * pct) / 100;
     }
     mg.push(mGross);
     mn.push(mNet);
+    mt.push(mAfter - monthRent);
     ng.push(nGross);
     nn.push(nNet);
+    nt.push(nAfter - ninetyRent);
   }
-  for (const arr of [mg, mn, ng, nn]) arr.sort((a, b) => a - b);
+  for (const arr of [mg, mn, mt, ng, nn, nt]) arr.sort((a, b) => a - b);
   const range = (arr: number[]): IncomeRange => ({
     low: percentile(arr, 10),
     mid: percentile(arr, 50),
@@ -474,6 +536,8 @@ export function simulateIncome(
     monthNet: range(mn),
     ninetyGross: range(ng),
     ninetyNet: range(nn),
+    monthTakeHome: range(mt),
+    ninetyTakeHome: range(nt),
     trials,
     thinWeekdays: WEEKDAY_LABELS.filter(
       (_, i) => byWeekday[i].length === 1,

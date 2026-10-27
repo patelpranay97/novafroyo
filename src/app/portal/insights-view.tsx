@@ -9,6 +9,7 @@ import {
   type TipDay,
   fmtMoney,
   fmtHours,
+  landlordPctFor,
   round2,
   parseDateStr,
   toDateStr,
@@ -33,6 +34,7 @@ import {
   type DaySplit,
   unpaidAging,
   weeklyTrend,
+  yearTotals,
 } from "@/lib/insights";
 import { Card, SectionLabel } from "./ui";
 import { ColumnChart, LineChart } from "./charts";
@@ -60,6 +62,20 @@ const MONTH_NAMES = [
 function fmtDateLong(dateStr: string): string {
   const d = parseDateStr(dateStr);
   return `${MONTH_NAMES[d.getMonth()].slice(0, 3)} ${d.getDate()}`;
+}
+
+/**
+ * Name every landlord rate a window actually billed at. A month — or a year —
+ * can straddle a rate change, so asserting today's rate applied throughout
+ * would misstate what was paid.
+ */
+function rateLabel(dates: string[], settings: Settings): string {
+  const rates = [...new Set(dates.map((d) => landlordPctFor(d, settings)))].sort(
+    (a, b) => a - b,
+  );
+  if (rates.length === 0) return `${Number(settings.landlord_pct)}%`;
+  if (rates.length === 1) return `${rates[0]}%`;
+  return `${rates[0]}–${rates[rates.length - 1]}%`;
 }
 
 function Delta({ pct }: { pct: number | null }) {
@@ -161,6 +177,15 @@ export function InsightsView({
   const months = monthlyRevenue(sales, settings, labor, now);
   const toLandlord = landlordTotals(
     sales, settings, labor, now.getFullYear(), now.getMonth(),
+  );
+  const ytd = yearTotals(sales, settings, labor, now.getFullYear());
+  const monthDates = sales
+    .map((s) => s.work_date)
+    .filter((d) => d.startsWith(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`));
+  const monthRate = rateLabel(monthDates, settings);
+  const ytdRate = rateLabel(
+    sales.map((s) => s.work_date).filter((d) => d.startsWith(`${now.getFullYear()}-`)),
+    settings,
   );
   const mix = mixComparison(sales, settings, labor);
   const weather = weatherSplits(sales, settings, labor);
@@ -272,8 +297,37 @@ export function InsightsView({
             {earn.days === 1 ? "" : "s"}
             {earn.perCup !== null && <> · {fmtMoney(earn.perCup)} per cup</>}
             <br />
-            Take-home is profit after the landlord&apos;s{" "}
-            {Number(settings.landlord_pct)}% and {fmtMoney(rent.rent)} rent.
+            Take-home is profit after the landlord&apos;s {monthRate} and{" "}
+            {fmtMoney(rent.rent)} rent.
+          </p>
+        </div>
+      )}
+
+      {/* Year to date */}
+      {ytd.days > 0 && (
+        <div>
+          <SectionLabel>Year to date · {now.getFullYear()}</SectionLabel>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Tile label="Revenue" value={fmtMoney(ytd.net)} />
+            <Tile label="Profit" value={fmtMoney(ytd.profit)} />
+            <Tile
+              label="Take-home"
+              value={fmtMoney(ytd.takeHome)}
+              tone={ytd.takeHome < 0 ? "bad" : "good"}
+            />
+            <Tile
+              label="Margin"
+              value={ytd.margin === null ? "—" : `${ytd.margin}%`}
+            />
+          </div>
+          <p className="mt-1.5 text-center text-[10px] leading-relaxed text-muted/80">
+            {ytd.days} day{ytd.days === 1 ? "" : "s"} open across {ytd.months}{" "}
+            month{ytd.months === 1 ? "" : "s"} · {fmtMoney(ytd.avgDay)}/day
+            {ytd.perCup !== null && <> · {fmtMoney(ytd.perCup)} per cup</>}
+            <br />
+            Take-home is profit less {fmtMoney(ytd.landlord)} of revenue share
+            ({ytdRate}) and {fmtMoney(ytd.rent)} rent ({ytd.months} ×{" "}
+            {fmtMoney(Number(settings.monthly_rent))}).
           </p>
         </div>
       )}

@@ -615,6 +615,72 @@ export function earningsTotals(
   };
 }
 
+// ---------- Year to date ----------
+
+export type YearTotals = {
+  net: number;
+  profit: number;
+  /** The landlord's revenue share for the year, at the rates actually billed. */
+  landlord: number;
+  /** Estimated: today's rent times the months with sales. */
+  rent: number;
+  /** What's left after the landlord's share and the year's rent. */
+  takeHome: number;
+  days: number;
+  months: number;
+  avgDay: number;
+  /** profit as a share of revenue; null when nothing sold */
+  margin: number | null;
+  cups: number;
+  perCup: number | null;
+};
+
+/**
+ * The same arithmetic as earningsTotals(), widened to a calendar year.
+ *
+ * Rent is the one estimate: today's rent times the number of months with
+ * sales, so it assumes rent never changed and that a partial opening month
+ * still owed a full one. Everything else — revenue, profit, the landlord's
+ * share — is exact, each day counted at the rate it was billed.
+ */
+export function yearTotals(
+  sales: DailySales[],
+  settings: Settings,
+  labor: Map<string, number>,
+  year: number,
+): YearTotals {
+  const prefix = `${year}-`;
+  const monthsSeen = new Set<string>();
+  let net = 0, profit = 0, landlord = 0, cups = 0, days = 0;
+  for (const s of sales) {
+    if (!s.work_date.startsWith(prefix)) continue;
+    const p = dayProfit(s, settings, labor.get(s.work_date) ?? 0);
+    net += Number(s.net_sales);
+    profit += p.profit;
+    landlord += p.landlordShare;
+    cups += Number(s.mini_cups) + Number(s.regular_cups) + Number(s.super_cups);
+    days++;
+    monthsSeen.add(s.work_date.slice(0, 7));
+  }
+  net = round2(net);
+  profit = round2(profit);
+  landlord = round2(landlord);
+  const rent = round2(Number(settings.monthly_rent) * monthsSeen.size);
+  return {
+    net,
+    profit,
+    landlord,
+    rent,
+    takeHome: round2(profit - landlord - rent),
+    days,
+    months: monthsSeen.size,
+    avgDay: days > 0 ? round2(net / days) : 0,
+    margin: net > 0 ? round2((profit / net) * 100) : null,
+    cups,
+    perCup: cups > 0 ? round2(net / cups) : null,
+  };
+}
+
 export type SalesWeekdayStat = {
   weekday: number; // 0 = Mon
   label: string;

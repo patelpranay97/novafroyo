@@ -43,7 +43,14 @@ export default function Home() {
         >
           NOVA
         </Link>
-        <span className="flex items-center gap-5">
+        <span className="flex items-center gap-4 sm:gap-5">
+          <a
+            href="#contact"
+            className="text-[9px] font-semibold uppercase tracking-[0.25em] text-charcoal transition hover:text-charcoal/60 sm:text-[10px] sm:tracking-[0.3em]"
+          >
+            <span className="sm:hidden">Events</span>
+            <span className="hidden sm:inline">Events &amp; Inquiries</span>
+          </a>
           <a
             href="https://www.instagram.com/novafroyo/"
             target="_blank"
@@ -187,7 +194,7 @@ export default function Home() {
           where someone hunting for a way to reach us already is. */}
       <section
         id="contact"
-        className="border-t border-charcoal/10 bg-cream-soft px-6 py-12 text-center sm:py-16"
+        className="scroll-mt-16 border-t border-charcoal/10 bg-cream-soft px-6 py-12 text-center sm:py-16"
       >
         <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
           Events &amp; Inquiries

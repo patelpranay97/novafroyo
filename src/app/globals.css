@@ -27,6 +27,16 @@
   --font-script: var(--font-script);
 }
 
+html {
+  /* The header's Events link is an in-page jump; glide rather than teleport. */
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 html,
 body {
   background: var(--cream);

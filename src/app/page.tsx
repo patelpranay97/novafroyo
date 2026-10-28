@@ -193,8 +193,7 @@ export default function Home() {
           Events &amp; Inquiries
         </p>
         <p className="mx-auto mt-4 max-w-sm text-base text-charcoal sm:text-lg">
-          Private parties, catering, pop-ups, press — tell us what you have in
-          mind.
+          Private events, catering, collaborations, and press inquiries.
         </p>
         <a
           href="mailto:novagreekfroyo@gmail.com"

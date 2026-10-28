@@ -74,6 +74,7 @@ const localBusinessJsonLd = {
     },
   },
   url: "https://www.novafroyo.com",
+  email: "novagreekfroyo@gmail.com",
   logo: "https://www.novafroyo.com/logo.png",
   image: "https://www.novafroyo.com/logo.png",
   foundingDate: "2026-07-12",

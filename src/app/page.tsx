@@ -183,6 +183,41 @@ export default function Home() {
         </a>
       </div>
 
+      {/* Events & inquiries — the practical-info zone at the foot of the page,
+          where someone hunting for a way to reach us already is. */}
+      <section
+        id="contact"
+        className="border-t border-charcoal/10 bg-cream-soft px-6 py-12 text-center sm:py-16"
+      >
+        <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
+          Events &amp; Inquiries
+        </p>
+        <p className="mx-auto mt-4 max-w-sm text-base text-charcoal sm:text-lg">
+          Private parties, catering, pop-ups, press — tell us what you have in
+          mind.
+        </p>
+        <a
+          href="mailto:novagreekfroyo@gmail.com"
+          className="mt-6 inline-flex items-center gap-2.5 border border-charcoal/30 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-charcoal transition hover:bg-charcoal hover:text-cream sm:gap-3 sm:px-8 sm:tracking-[0.3em] sm:text-[11px]"
+        >
+          novagreekfroyo@gmail.com
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            aria-hidden="true"
+            className="h-3.5 w-3.5"
+          >
+            <path
+              d="M2 4.5h12v8H2zM2 5l6 4 6-4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </a>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-charcoal/10 bg-cream">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-8 text-center">

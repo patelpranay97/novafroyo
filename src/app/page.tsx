@@ -192,8 +192,11 @@ export default function Home() {
         <p className="text-[10px] font-semibold uppercase tracking-[0.5em] text-muted">
           Events &amp; Inquiries
         </p>
-        <p className="mx-auto mt-4 max-w-sm text-base text-charcoal sm:text-lg">
-          Private events, catering, collaborations, and press inquiries.
+        <p className="mt-4 text-lg text-charcoal sm:text-xl">
+          Bring Nova to your event.
+        </p>
+        <p className="mx-auto mt-3 max-w-xs text-[10px] font-semibold uppercase leading-[2] tracking-[0.25em] text-muted sm:max-w-none">
+          Private Events &middot; Catering &middot; Collaborations &middot; Press
         </p>
         <a
           href="mailto:novagreekfroyo@gmail.com"
